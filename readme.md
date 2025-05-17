@@ -157,3 +157,36 @@ Ce projet a pour objectif de moderniser la gestion des stages à l'institut en r
 - `POST /api/admin/evaluations` - Ajouter une évaluation
 - `PUT /api/admin/evaluations/:id` - Modifier une évaluation
 
+
+
+
+## Résumé du travail effectué
+
+Nous avons implémenté un système d'authentification backend complet pour la plateforme de gestion des stages avec les fonctionnalités suivantes :
+
+1. **Système d'authentification** :
+   - Inscription des utilisateurs (`/api/auth/register`)
+   - Connexion des utilisateurs (`/api/auth/login`) 
+   - Récupération des informations de l'utilisateur courant (`/api/auth/me`)
+
+2. **Middleware d'authentification** :
+   - Protection des routes avec vérification des tokens JWT
+   - Middleware pour les routes réservées aux administrateurs
+
+3. **Configuration de la base de données** :
+   - Connection pool avec mysql2
+   - Gestion des erreurs appropriée
+
+4. **Structure du projet** :
+   - Routes organisées en modules séparés
+   - Module de configuration pour la connexion à la base de données
+   - Middleware pour la protection des routes
+
+Le serveur est maintenant fonctionnel et prêt à être intégré avec le frontend. Les utilisateurs peuvent s'inscrire, se connecter et accéder aux routes protégées.
+
+Pour tester ces endpoints, vous pouvez utiliser Postman ou Thunder Client dans VS Code avec les routes suivantes :
+- `POST http://localhost:3000/api/auth/register` (avec les données utilisateur)
+- `POST http://localhost:3000/api/auth/login` (avec matricule et mot de passe)
+- `GET http://localhost:3000/api/auth/me` (avec l'en-tête d'autorisation)
+
+La route test protégée (`GET http://localhost:3000/api/test`) démontre comment sécuriser les endpoints qui ne devraient être accessibles qu'aux utilisateurs authentifiés.

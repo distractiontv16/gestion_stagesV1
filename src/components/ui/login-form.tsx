@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SunIcon, LogInIcon } from "lucide-react";
+import { SunIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface LoginFormData {
@@ -18,6 +18,7 @@ export const LoginForm = () => {
 
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,6 +27,8 @@ export const LoginForm = () => {
       ...formData,
       [name]: value,
     });
+    // Réinitialiser l'erreur d'authentification lorsque l'utilisateur modifie les champs
+    if (authError) setAuthError(null);
   };
 
   const validateForm = () => {
@@ -48,34 +51,58 @@ export const LoginForm = () => {
     return valid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isValid = validateForm();
 
     if (isValid) {
       setIsSubmitting(true);
+      setAuthError(null);
       
-      // Redirection conditionnelle basée sur les identifiants de test
-      setTimeout(() => {
-        console.log("Connexion avec :", formData);
+      try {
+        // Nettoyer le matricule des espaces et tabulations
+        const cleanMatricule = formData.matricule.trim();
+        
+        console.log('Tentative de connexion avec:', {
+          matricule: cleanMatricule,
+          password: formData.password
+        });
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            matricule: cleanMatricule, // Utiliser le matricule nettoyé
+            password: formData.password
+          }),
+        });
 
-        // Redirection vers le dashboard étudiant
-        if (formData.matricule === "64036STI22" && formData.password === "Etudiants2025") {
-          console.log("Redirection vers le dashboard étudiant");
-          navigate("/student/dashboard");
-        }
-        // Redirection vers le dashboard admin
-        else if (formData.matricule === "98036STI22" && formData.password === "Admin20") {
-          console.log("Redirection vers le dashboard admin");
-          navigate("/admin/dashboard");
-        }
-        // Cas par défaut - montrer un message d'erreur
-        else {
-          alert("Identifiants incorrects");
+        const data = await response.json();
+        console.log('Réponse du serveur:', data);
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Erreur lors de la connexion');
         }
 
+        // Stocker le token JWT dans le localStorage
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          
+          // Redirection basée sur le rôle
+          if (data.user.role === 'admin') {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/student/dashboard');
+          }
+        }
+      } catch (error) {
+        console.error('Erreur de connexion:', error);
+        setAuthError(error instanceof Error ? error.message : 'Identifiants incorrects');
+      } finally {
         setIsSubmitting(false);
-      }, 1000);
+      }
     }
   };
 
@@ -94,6 +121,12 @@ export const LoginForm = () => {
 
         <div className="bg-white p-6">
           <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+            {authError && (
+              <div className="p-2 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {authError}
+              </div>
+            )}
+            
             <div>
               <label htmlFor="matricule" className="block text-sm mb-2 font-medium">
                 Matricule
@@ -160,7 +193,7 @@ export const LoginForm = () => {
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <span>Se connecter...</span>
+                <span>Connexion en cours...</span>
               ) : (
                 <span>Se connecter</span>
               )}

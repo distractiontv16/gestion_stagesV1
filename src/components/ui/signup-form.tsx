@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { SunIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Types pour notre formulaire
 interface IUserRegistration {
   nom: string;
   prenom: string;
   telephone: string;
+  email: string;
   whatsapp: string;
   matricule: string;
   filiereId: string;
@@ -30,11 +32,14 @@ const filieres = [
 ];
 
 export const SignupForm = () => {
+  const navigate = useNavigate();
+  
   // État initial du formulaire
   const [formData, setFormData] = useState<IUserRegistration>({
     nom: "",
     prenom: "",
     telephone: "",
+    email: "",
     whatsapp: "",
     matricule: "",
     filiereId: "",
@@ -44,7 +49,8 @@ export const SignupForm = () => {
 
   // État des erreurs
   const [errors, setErrors] = useState<Partial<Record<keyof IUserRegistration, string>>>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Gestion des changements de champs
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -53,6 +59,8 @@ export const SignupForm = () => {
       ...formData,
       [name]: value,
     });
+    // Réinitialiser l'erreur d'api lorsque l'utilisateur modifie les champs
+    if (apiError) setApiError(null);
   };
 
   // Validation du formulaire
@@ -77,6 +85,12 @@ export const SignupForm = () => {
       valid = false;
     } else if (!/^\d{8,}$/.test(formData.telephone)) {
       newErrors.telephone = "Le numéro de téléphone doit avoir au moins 8 chiffres";
+      valid = false;
+    }
+
+    // Validation email - seulement s'il est rempli
+    if (formData.email.trim() && !isValidEmail(formData.email)) {
+      newErrors.email = "Format d'email invalide";
       valid = false;
     }
 
@@ -111,29 +125,75 @@ export const SignupForm = () => {
     return valid;
   };
 
+  // Fonction de validation d'email
+  const isValidEmail = (email: string) => {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailPattern.test(email);
+  };
+
   // Soumission du formulaire
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isValid = validateForm();
-    setSubmitted(true);
-
+    
     if (isValid) {
-      // Logique d'envoi des données au serveur
-      console.log("Formulaire soumis :", formData);
-      alert("Inscription réussie !");
+      setIsSubmitting(true);
+      setApiError(null);
       
-      // Réinitialiser le formulaire
-      setFormData({
-        nom: "",
-        prenom: "",
-        telephone: "",
-        whatsapp: "",
-        matricule: "",
-        filiereId: "",
-        password: "",
-        confirmPassword: "",
-      });
-      setSubmitted(false);
+      try {
+        // Préparer les données pour l'API
+        const userData = {
+          nom: formData.nom,
+          prenom: formData.prenom,
+          telephone: formData.telephone,
+          email: formData.email,
+          matricule: formData.matricule,
+          filiere_id: parseInt(formData.filiereId),
+          mot_de_passe: formData.password,
+          role: "etudiant", // Par défaut, les inscriptions sont pour les étudiants
+        };
+        
+        console.log("Données envoyées:", userData);
+        
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userData),
+        });
+
+        const data = await response.json();
+        console.log("Réponse du serveur:", data);
+
+        if (!response.ok) {
+          // Traiter le format d'erreur spécifique de express-validator
+          if (data.errors && Array.isArray(data.errors)) {
+            // Prendre le premier message d'erreur pour l'afficher
+            throw new Error(data.errors.map((err: any) => err.msg).join(", "));
+          } else {
+            throw new Error(data.message || data.error || 'Erreur lors de l\'inscription');
+          }
+        }
+
+        // Afficher un message de succès avant la redirection
+        alert("Inscription réussie! Vous allez être redirigé vers la page de connexion.");
+
+        // Rediriger vers la page de connexion après une inscription réussie
+        navigate('/login');
+        
+      } catch (error) {
+        console.error('Erreur d\'inscription détaillée:', error);
+        
+        // Afficher plus d'informations sur l'erreur
+        if (error instanceof Error) {
+          setApiError(`Erreur: ${error.message}`);
+        } else {
+          setApiError('Une erreur inconnue est survenue lors de l\'inscription');
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -147,6 +207,12 @@ export const SignupForm = () => {
 
         <div className="p-6">
           <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+            {apiError && (
+              <div className="p-2 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {apiError}
+              </div>
+            )}
+            
             {/* Prénom */}
             <div>
               <label htmlFor="prenom" className="block text-sm mb-2">
@@ -207,6 +273,27 @@ export const SignupForm = () => {
               />
               {errors.telephone && (
                 <p className="text-red-500 text-xs mt-1">{errors.telephone}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm mb-2">
+                Email (optionnel)
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="Votre adresse email (optionnel)"
+                value={formData.email}
+                onChange={handleChange}
+                className={`text-sm w-full py-2 px-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 ${
+                  errors.email ? "border-red-500" : "border-gray-300"
+                }`}
+              />
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
               )}
             </div>
 
@@ -318,8 +405,9 @@ export const SignupForm = () => {
             <button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors mt-4"
+              disabled={isSubmitting}
             >
-              S'inscrire
+              {isSubmitting ? "Inscription en cours..." : "S'inscrire"}
             </button>
 
             <div className="text-center text-gray-600 text-sm mt-4">

@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, ResponsiveContainer, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { UsersIcon, ClipboardListIcon, BellIcon, SearchIcon, BriefcaseIcon } from 'lucide-react';
+
+// Interface pour les informations d'utilisateur
+interface UserInfo {
+  id?: number;
+  nom: string;
+  prenom: string;
+  email?: string;
+  matricule: string;
+  role?: string;
+}
 
 // Données fictives pour la démo
 const stageStats = [
@@ -33,6 +43,13 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFiliere, setFilterFiliere] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adminInfo, setAdminInfo] = useState<UserInfo>({
+    nom: '',
+    prenom: '',
+    matricule: '',
+  });
   
   // Données fictives pour les propositions de stages
   const [internshipProposals, setInternshipProposals] = useState([
@@ -93,8 +110,62 @@ const AdminDashboard = () => {
     return matchesSearch && matchesFiliere;
   });
   
+  // Chargement des informations administrateur
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        const response = await fetch('http://localhost:3000/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Échec de récupération des informations utilisateur');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          // Vérifier si l'utilisateur est bien un administrateur
+          if (data.data.role !== 'admin') {
+            navigate('/student/dashboard');
+            return;
+          }
+          
+          // Formatage des données utilisateur
+          setAdminInfo({
+            id: data.data.id,
+            nom: data.data.nom || '',
+            prenom: data.data.prenom || '',
+            email: data.data.email || '',
+            matricule: data.data.matricule || '',
+            role: data.data.role
+          });
+        } else {
+          setError('Impossible de charger les informations administrateur');
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement des données administrateur:', err);
+        setError('Erreur lors du chargement des données administrateur');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAdminData();
+  }, [navigate]);
+  
   const handleLogout = () => {
-    // Dans un cas réel, vous effaceriez ici les tokens d'authentification
+    // Supprimer le token d'authentification
+    localStorage.removeItem('token');
     console.log("Déconnexion de l'administrateur");
     // Redirection vers la page de login
     navigate('/login');
@@ -129,6 +200,36 @@ const AdminDashboard = () => {
     setInternshipProposals(prev => prev.filter(proposal => proposal.id !== id));
   };
 
+  // Afficher un message de chargement pendant la récupération des données
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-2">Chargement des informations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si la récupération a échoué
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <h2 className="text-red-600 text-xl font-bold mb-4">Erreur</h2>
+          <p className="mb-6">{error}</p>
+          <button 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            onClick={() => navigate('/login')}
+          >
+            Retour à la page de connexion
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Barre latérale */}
@@ -136,6 +237,7 @@ const AdminDashboard = () => {
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold">ISI Stages</h1>
           <p className="text-gray-400 text-sm">Portail Administrateur</p>
+          <p className="text-white font-medium mt-2">{adminInfo.prenom} {adminInfo.nom}</p>
         </div>
         
         <nav className="p-4">
@@ -203,12 +305,15 @@ const AdminDashboard = () => {
               {activeTab === 'proposals' && 'Propositions de Stages'}
               {activeTab === 'notifications' && 'Notifications'}
             </h1>
-            <button 
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors"
-              onClick={handleLogout}
-            >
-              Déconnexion
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600 hidden md:inline">{adminInfo.matricule}</span>
+              <button 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                onClick={handleLogout}
+              >
+                Déconnexion
+              </button>
+            </div>
           </div>
         </header>
 

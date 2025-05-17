@@ -1,0 +1,26 @@
+### Inscription d'un utilisateur
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "nom": "Dupont",
+  "prenom": "Jean",
+  "telephone": "0123456789",
+  "email": "jean.dupont@example.com",
+  "matricule": "MAT123456",
+  "filiere_id": 1,
+  "mot_de_passe": "motdepasse123"
+}
+
+### Connexion utilisateur
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "matricule": "MAT123456",
+  "mot_de_passe": "motdepasse123"
+}
+
+### Récupérer les informations utilisateur
+GET http://localhost:3000/api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwicm9sZSI6ImV0dWRpYW50IiwiaWF0IjoxNzQ3NDIxMTYwLCJleHAiOjE3NDgwMjU5NjB9.3tlMCVmEgaRGXpqUHXmY0uASsfCGIT03JVWKhwA4Xgk

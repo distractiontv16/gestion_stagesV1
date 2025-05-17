@@ -1,22 +1,110 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StageForm } from '@/components/ui/stage-form';
+
+// Liste des filières pour mappage ID -> nom
+const filieres = [
+  { id: 1, nom: 'GEI/EE' },
+  { id: 2, nom: 'GEI/IT' },
+  { id: 3, nom: 'GE/ER' },
+  { id: 4, nom: 'GMP' },
+  { id: 5, nom: 'MSY/MI' },
+  { id: 6, nom: 'ER/SE' },
+  { id: 7, nom: 'GC/A' },
+  { id: 8, nom: 'GC/B' },
+  { id: 9, nom: 'MSY/MA' },
+  { id: 10, nom: 'GE/FC' },
+];
+
+interface UserInfo {
+  id?: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  matricule: string;
+  filiere_id?: number;
+  filiere?: string;
+  telephone: string;
+  role?: string;
+  whatsapp?: string;
+}
 
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('infos');
   const [showStageForm, setShowStageForm] = useState(false);
   const [hasFoundInternship, setHasFoundInternship] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [studentInfo, setStudentInfo] = useState<UserInfo>({
+    nom: '',
+    prenom: '',
+    email: '',
+    matricule: '',
+    filiere: '',
+    telephone: '',
+  });
   const navigate = useNavigate();
 
-  // Données fictives pour la démo
-  const studentInfo = {
-    nom: 'Diallo',
-    prenom: 'Mamadou',
-    email: 'mamadou.diallo@example.com',
-    matricule: 'ETU1234',
-    filiere: 'GEI/IT',
-    telephone: '77123456',
-  };
+  // Chargement des informations utilisateur
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Échec de récupération des informations utilisateur');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          // Trouver le nom de la filière à partir de l'ID
+          const filiereNom = data.data.filiere_id 
+            ? filieres.find(f => f.id === data.data.filiere_id)?.nom || `Filière ID: ${data.data.filiere_id}`
+            : 'Non renseignée';
+            
+          // Formatage des données utilisateur
+          setStudentInfo({
+            id: data.data.id,
+            nom: data.data.nom || '',
+            prenom: data.data.prenom || '',
+            email: data.data.email || '',
+            matricule: data.data.matricule || '',
+            filiere_id: data.data.filiere_id,
+            filiere: filiereNom,
+            telephone: data.data.telephone || '',
+            whatsapp: data.data.whatsapp || '',
+            role: data.data.role
+          });
+          
+          // Rediriger vers le tableau de bord admin si l'utilisateur est un administrateur
+          if (data.data.role === 'admin') {
+            navigate('/admin/dashboard');
+          }
+        } else {
+          setError('Impossible de charger les informations utilisateur');
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement des données utilisateur:', err);
+        setError('Erreur lors du chargement des données utilisateur');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, [navigate]);
 
   // Données fictives pour les propositions de stages
   const internshipOffers = [
@@ -50,7 +138,8 @@ const StudentDashboard = () => {
   ];
 
   const handleLogout = () => {
-    // Dans un cas réel, vous effaceriez ici les tokens d'authentification
+    // Supprimer le token d'authentification
+    localStorage.removeItem('token');
     console.log("Déconnexion de l'utilisateur");
     // Redirection vers la page de login
     navigate('/login');
@@ -64,20 +153,74 @@ const StudentDashboard = () => {
     setHasFoundInternship(status);
   };
 
+  // Afficher un message de chargement pendant la récupération des données
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-2">Chargement des informations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message d'erreur si la récupération a échoué
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <h2 className="text-red-600 text-xl font-bold mb-4">Erreur</h2>
+          <p className="mb-6">{error}</p>
+          <button 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            onClick={() => navigate('/login')}
+          >
+            Retour à la page de connexion
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* En-tête */}
-      <header className="bg-blue-600 text-white shadow-md">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold">ISI Stages</h1>
-          <div className="flex items-center gap-3">
-            <span>{studentInfo.prenom} {studentInfo.nom}</span>
-            <button 
-              className="bg-white text-blue-600 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-100"
-              onClick={handleLogout}
-            >
-              Déconnexion
-            </button>
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 bg-blue-600 rounded-md flex items-center justify-center">
+                <span className="text-white font-bold">IS</span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-800">ISI Stages</h1>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden md:block">
+                <p className="text-sm font-medium">{studentInfo.prenom} {studentInfo.nom}</p>
+                <p className="text-xs text-gray-500">{studentInfo.filiere || 'Étudiant'}</p>
+              </div>
+              
+              <div className="relative group">
+                <button className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-blue-600 font-semibold">{studentInfo.prenom?.[0] || ''}{studentInfo.nom?.[0] || ''}</span>
+                </button>
+                
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block z-10">
+                  <div className="py-2 px-4 border-b border-gray-100">
+                    <p className="font-medium truncate">{studentInfo.prenom} {studentInfo.nom}</p>
+                    <p className="text-sm text-gray-500 truncate">{studentInfo.matricule}</p>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                  >
+                    Déconnexion
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -146,31 +289,67 @@ const StudentDashboard = () => {
             <div className="p-6">
               {activeTab === 'infos' && (
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Mes Informations</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-500">Nom</p>
-                      <p className="font-medium">{studentInfo.nom}</p>
+                  <h2 className="text-xl font-semibold text-gray-800 mb-6">Mon profil étudiant</h2>
+                  
+                  <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                      <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 text-2xl font-bold">
+                          {studentInfo.prenom[0]}{studentInfo.nom[0]}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-xl font-bold">{studentInfo.prenom} {studentInfo.nom}</h3>
+                        <p className="text-gray-600">{studentInfo.filiere}</p>
+                        <p className="text-sm text-gray-500 mt-1">Matricule: {studentInfo.matricule}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Prénom</p>
-                      <p className="font-medium">{studentInfo.prenom}</p>
+                  </div>
+                  
+                  <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Informations personnelles</h4>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Nom complet</p>
+                          <p className="font-medium">{studentInfo.prenom} {studentInfo.nom}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm text-gray-500">Filière</p>
+                          <p className="font-medium">{studentInfo.filiere}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm text-gray-500">Matricule</p>
+                          <p className="font-medium">{studentInfo.matricule}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium">{studentInfo.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Téléphone</p>
-                      <p className="font-medium">{studentInfo.telephone}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Matricule</p>
-                      <p className="font-medium">{studentInfo.matricule}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Filière</p>
-                      <p className="font-medium">{studentInfo.filiere}</p>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Coordonnées</h4>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Email</p>
+                          <p className="font-medium">{studentInfo.email || 'Non renseigné'}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm text-gray-500">Téléphone</p>
+                          <p className="font-medium">{studentInfo.telephone}</p>
+                        </div>
+                        
+                        {studentInfo.whatsapp && (
+                          <div>
+                            <p className="text-sm text-gray-500">WhatsApp</p>
+                            <p className="font-medium">{studentInfo.whatsapp}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

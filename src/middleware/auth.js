@@ -7,62 +7,60 @@ dotenv.config();
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'votre_clef_secrete_très_longue_et_complexe';
 
+// Middleware to protect routes
 export const protect = async (req, res, next) => {
-  try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non autorisé, token manquant'
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    // Verify token
+  let token;
+  
+  // Check if token exists in headers
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
+      // Get token from header
+      token = req.headers.authorization.split(' ')[1];
+      
+      // Verify token
       const decoded = jwt.verify(token, JWT_SECRET);
       
-      // Get user info
+      // Get user from database
       const [users] = await pool.query(
-        'SELECT id, nom, prenom, email, matricule, role FROM utilisateurs WHERE id = ?',
+        'SELECT id, nom, prenom, email, matricule, filiere_id, role FROM utilisateurs WHERE id = ?',
         [decoded.id]
       );
-
+      
       if (users.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Utilisateur non trouvé'
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Utilisateur non trouvé' 
         });
       }
-
-      // Add user to request object
+      
+      // Set user in request
       req.user = users[0];
+      
       next();
-    } catch (jwtError) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non autorisé, token invalide'
+    } catch (error) {
+      console.error('Auth error:', error);
+      
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Non autorisé, token invalide' 
       });
     }
-  } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
+  } else {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Non autorisé, aucun token' 
     });
   }
 };
 
-// Middleware for admin-only routes
+// Middleware for admin routes
 export const adminOnly = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     next();
   } else {
     res.status(403).json({
       success: false,
-      message: 'Accès refusé. Cette action nécessite des droits d\'administrateur'
+      message: 'Accès refusé. Réservé aux administrateurs'
     });
   }
 };

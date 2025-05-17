@@ -29,12 +29,35 @@ interface UserInfo {
   whatsapp?: string;
 }
 
+interface StageInfo {
+  id?: number;
+  etudiant_id?: number;
+  nom_entreprise?: string;
+  departement?: string;
+  commune?: string;
+  quartier?: string;
+  date_debut?: string;
+  date_fin?: string;
+  theme_memoire?: string;
+  nom_maitre_stage?: string;
+  prenom_maitre_stage?: string;
+  telephone_maitre_stage?: string;
+  email_maitre_stage?: string;
+  fonction_maitre_stage?: string;
+  nom_maitre_memoire?: string;
+  telephone_maitre_memoire?: string;
+  email_maitre_memoire?: string;
+  statut_maitre_memoire?: string;
+}
+
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('infos');
   const [showStageForm, setShowStageForm] = useState(false);
   const [hasFoundInternship, setHasFoundInternship] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
+  const [loadingStage, setLoadingStage] = useState(false);
   const [studentInfo, setStudentInfo] = useState<UserInfo>({
     nom: '',
     prenom: '',
@@ -67,37 +90,39 @@ const StudentDashboard = () => {
         }
         
         const data = await response.json();
-        
         if (data.success && data.data) {
-          // Trouver le nom de la filière à partir de l'ID
-          const filiereNom = data.data.filiere_id 
-            ? filieres.find(f => f.id === data.data.filiere_id)?.nom || `Filière ID: ${data.data.filiere_id}`
-            : 'Non renseignée';
-            
-          // Formatage des données utilisateur
+          const userData = data.data;
+          
+          // Trouver le nom de la filière basé sur l'ID
+          let filiereName = '';
+          if (userData.filiere_id) {
+            const filiere = filieres.find(f => f.id === userData.filiere_id);
+            if (filiere) {
+              filiereName = filiere.nom;
+            }
+          }
+          
           setStudentInfo({
-            id: data.data.id,
-            nom: data.data.nom || '',
-            prenom: data.data.prenom || '',
-            email: data.data.email || '',
-            matricule: data.data.matricule || '',
-            filiere_id: data.data.filiere_id,
-            filiere: filiereNom,
-            telephone: data.data.telephone || '',
-            whatsapp: data.data.whatsapp || '',
-            role: data.data.role
+            id: userData.id,
+            nom: userData.nom || '',
+            prenom: userData.prenom || '',
+            email: userData.email || '',
+            matricule: userData.matricule || '',
+            filiere_id: userData.filiere_id,
+            filiere: filiereName,
+            telephone: userData.telephone || '',
+            whatsapp: userData.whatsapp || '',
+            role: userData.role || 'etudiant'
           });
           
-          // Rediriger vers le tableau de bord admin si l'utilisateur est un administrateur
-          if (data.data.role === 'admin') {
-            navigate('/admin/dashboard');
+          // Charger les informations de stage
+          if (userData.id) {
+            fetchStageData(userData.id, token);
           }
-        } else {
-          setError('Impossible de charger les informations utilisateur');
         }
       } catch (err) {
-        console.error('Erreur lors du chargement des données utilisateur:', err);
-        setError('Erreur lors du chargement des données utilisateur');
+        console.error('Erreur lors du chargement des données étudiant:', err);
+        setError('Erreur lors du chargement des données');
       } finally {
         setLoading(false);
       }
@@ -105,6 +130,36 @@ const StudentDashboard = () => {
     
     fetchUserData();
   }, [navigate]);
+  
+  // Récupérer les informations de stage
+  const fetchStageData = async (userId: number, token: string) => {
+    setLoadingStage(true);
+    try {
+      const response = await fetch(`/api/internships/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setStageInfo(data.data);
+          setHasFoundInternship(true);
+        } else {
+          setStageInfo(null);
+        }
+      } else {
+        console.error('Erreur lors de la récupération des informations de stage');
+        setStageInfo(null);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des informations de stage:', error);
+      setStageInfo(null);
+    } finally {
+      setLoadingStage(false);
+    }
+  };
 
   // Données fictives pour les propositions de stages
   const internshipOffers = [
@@ -164,6 +219,18 @@ const StudentDashboard = () => {
       </div>
     );
   }
+
+  // Formater la date
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Non définie';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
 
   // Afficher un message d'erreur si la récupération a échoué
   if (error) {
@@ -359,36 +426,157 @@ const StudentDashboard = () => {
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold text-gray-800">Informations de Stage</h2>
                   
-                  {/* État du stage */}
-                  <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
+                  {loadingStage ? (
+                    <div className="py-4 flex justify-center">
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent"></div>
+                    </div>
+                  ) : stageInfo ? (
+                    <div className="space-y-8">
+                      <div className="bg-green-50 border-l-4 border-green-500 p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-green-700">
+                              Vous avez déjà soumis vos informations de stage. Vous pouvez les modifier à tout moment.
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="ml-3">
-                        <p className="text-sm text-yellow-700">
-                          Vous n'avez pas encore soumis vos informations de stage.
-                        </p>
+
+                      {/* Informations sur l'entreprise */}
+                      <div className="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold mb-4">Entreprise</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Nom de l'entreprise</p>
+                            <p className="font-medium">{stageInfo.nom_entreprise}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Département</p>
+                            <p className="font-medium">{stageInfo.departement}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Commune</p>
+                            <p className="font-medium">{stageInfo.commune}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Quartier</p>
+                            <p className="font-medium">{stageInfo.quartier}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Date de début</p>
+                            <p className="font-medium">{formatDate(stageInfo.date_debut)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Date de fin</p>
+                            <p className="font-medium">{formatDate(stageInfo.date_fin)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Informations sur le thème */}
+                      <div className="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold mb-4">Thème de fin d'études</h3>
+                        <p className="text-gray-800">{stageInfo.theme_memoire}</p>
+                      </div>
+
+                      {/* Informations sur le maître de stage */}
+                      <div className="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold mb-4">Maître de stage</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Nom</p>
+                            <p className="font-medium">{stageInfo.nom_maitre_stage}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Prénom</p>
+                            <p className="font-medium">{stageInfo.prenom_maitre_stage}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Téléphone</p>
+                            <p className="font-medium">{stageInfo.telephone_maitre_stage}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium">{stageInfo.email_maitre_stage}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Fonction</p>
+                            <p className="font-medium">{stageInfo.fonction_maitre_stage}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Informations sur le maître de mémoire */}
+                      <div className="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold mb-4">Maître de mémoire</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Nom</p>
+                            <p className="font-medium">{stageInfo.nom_maitre_memoire}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Téléphone</p>
+                            <p className="font-medium">{stageInfo.telephone_maitre_memoire}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium">{stageInfo.email_maitre_memoire}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Statut</p>
+                            <p className="font-medium">{stageInfo.statut_maitre_memoire}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center">
+                        <button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                          onClick={handleStartFormClick}
+                        >
+                          Modifier les informations
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* État du stage */}
+                      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-yellow-700">
+                              Vous n'avez pas encore soumis vos informations de stage.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                  {/* Formulaire de stage par étapes */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-medium text-lg mb-4">Formulaire de Stage</h3>
-                    <p className="text-sm text-gray-600 mb-6">
-                      Complétez ce formulaire avec les informations relatives à votre stage.
-                    </p>
-                    
-                    <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                      onClick={handleStartFormClick}
-                    >
-                      Commencer le formulaire
-                    </button>
-                  </div>
+                      {/* Formulaire de stage par étapes */}
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium text-lg mb-4">Formulaire de Stage</h3>
+                        <p className="text-sm text-gray-600 mb-6">
+                          Complétez ce formulaire avec les informations relatives à votre stage.
+                        </p>
+                        
+                        <button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                          onClick={handleStartFormClick}
+                        >
+                          Commencer le formulaire
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 

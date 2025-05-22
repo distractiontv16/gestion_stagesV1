@@ -1,107 +1,34 @@
-# Guide d'installation et de configuration
 
-Ce guide vous aidera à installer et configurer correctement l'application de gestion des stages.
+D'accord, je comprends votre frustration. Reprenons la migration de MySQL vers PostgreSQL étape par étape, et nous allons aussi investiguer cette erreur persistante.
 
-## Prérequis
+Il semble que malgré les modifications précédentes, l'erreur `TypeError: pool.query is not a function` à la ligne `auth.js:127:40` persiste. C'est très curieux car les fichiers que vous m'avez montrés (`src/routes/auth.js` et `src/config/db.js`) semblent maintenant utiliser correctement la fonction `query`.
 
-- Node.js (v14 ou supérieur)
-- MySQL (v5.7 ou supérieur)
-- npm (inclus avec Node.js)
+**Avant de refaire toute la migration, il est impératif de comprendre pourquoi cette erreur JavaScript se produit.** Si nous ne la corrigeons pas, même une migration parfaite ne permettra pas à l'application de fonctionner.
 
-## Installation
+**1. Diagnostic de l'erreur JavaScript `pool.query is not a function`**
 
-1. Clonez le dépôt :
-   ```bash
-   git clone https://votre-depot.git/gestion-stages.git
-   cd gestion-stages
-   ```
+Je suspecte un problème de cache, de chargement de module, ou un souci avec l'instance `pool` elle-même qui n'est pas correctement initialisée ou accessible au moment de l'appel.
 
-2. Installez les dépendances :
-   ```bash
-   npm install
-   ```
+Pour diagnostiquer cela, je propose d'ajouter des traces (console.log) dans `src/config/db.js` et `src/routes/auth.js` pour inspecter l'état des objets `db`, `pool`, et `query` juste avant l'appel qui échoue.
 
-3. Configurez les variables d'environnement :
-   - Dupliquez le fichier `.env.example` en `.env`
-   - Modifiez les valeurs selon votre configuration locale
+Voici les modifications que je suggère :
 
-4. Configuration de la base de données :
-   - Créez une base de données MySQL nommée `gestion_stages`
-   - Importez la structure de la base de données :
-     ```bash
-     mysql -u votre_utilisateur -p gestion_stages < sql/init_database.sql
-     ```
+Je vais ajouter ces logs pour nous aider à voir ce qui se passe.
 
-## Configuration
+**2. Révision du processus de migration**
 
-### Configuration de la base de données
+Une fois que nous aurons plus d'informations sur l'erreur JavaScript (et espérons-le, une solution), nous pourrons nous concentrer sur la migration.
 
-Les variables d'environnement pour la base de données sont :
+Concernant votre script `migrate_to_postgres.py` :
+J'ai noté un point important : la manière dont le script tente de convertir les types `ENUM` de MySQL (`TEXT CHECK("" IN ...)` à la ligne 54) est incorrecte et causera probablement des erreurs lors de la création du schéma dans PostgreSQL. La syntaxe correcte pour une contrainte `CHECK` nécessiterait le nom de la colonne, ou mieux, PostgreSQL gère les `ENUM` via `CREATE TYPE nom_type AS ENUM (...)`.
 
-```
-DB_HOST=localhost
-DB_USER=votre_utilisateur
-DB_PASSWORD=votre_mot_de_passe
-DB_NAME=gestion_stages
-```
+Nous avons deux options principales pour la migration :
+    a.  **Corriger le script `migrate_to_postgres.py` :** Nous devrons modifier la logique de remplacement des `ENUM` et nous assurer que la configuration de la base de données PostgreSQL (notamment le mot de passe) est correctement gérée par le script (actuellement, il utilise un mot de passe vide pour PostgreSQL dans `postgres_config`).
+    b.  **Utiliser `pgloader` :** L'article que vous avez trouvé (`How To Migrate a MySQL Database to PostgreSQL Using pgLoader`) décrit l'utilisation de `pgloader`. C'est un outil spécialisé et souvent plus robuste pour ce genre de migration, car il gère automatiquement de nombreuses conversions complexes (comme les ENUMs, les types de données, etc.) entre MySQL et PostgreSQL.
 
-### Configuration des JWT (authentification)
+**Recommandation:**
+Je suggère fortement de d'abord ajouter les logs pour l'erreur JavaScript. Voulez-vous que je procède à l'ajout de ces logs dans `src/config/db.js` et `src/routes/auth.js` ?
 
-```
-JWT_SECRET=une_chaine_secrete_longue_et_complexe
-JWT_EXPIRE=30d
-```
+Une fois que nous aurons résolu ce problème de code, si la migration doit être refaite, l'utilisation de `pgloader` pourrait être une solution plus fiable et plus rapide que de débugger en profondeur le script Python, surtout si le schéma MySQL est complexe.
 
-## Démarrage de l'application
-
-### Mode développement
-
-```bash
-npm run dev
-```
-
-L'application sera accessible à l'adresse http://localhost:5173 et l'API à l'adresse http://localhost:3000.
-
-### Mode production
-
-```bash
-npm run build
-npm start
-```
-
-L'application sera accessible à l'adresse http://localhost:3000.
-
-## Résolution des problèmes courants
-
-### Erreur "Tables n'existent pas"
-
-Si vous rencontrez des erreurs indiquant que certaines tables n'existent pas, vérifiez que vous avez bien importé le fichier SQL d'initialisation :
-
-```bash
-mysql -u votre_utilisateur -p gestion_stages < sql/init_database.sql
-```
-
-### Problèmes de connexion à la base de données
-
-1. Vérifiez que MySQL est bien en cours d'exécution
-2. Vérifiez les informations de connexion dans votre fichier `.env`
-3. Assurez-vous que l'utilisateur MySQL a les permissions nécessaires
-
-### Identifiants de test
-
-- **Admin** : 
-  - Matricule : ADMIN001
-  - Mot de passe : admin123
-
-## Structure du projet
-
-- `src/` : Code source de l'application
-  - `components/` : Composants React
-  - `controllers/` : Contrôleurs de l'API
-  - `middleware/` : Middleware (authentification, etc.)
-  - `routes/` : Routes de l'API
-  - `config/` : Configuration de l'application
-- `sql/` : Scripts SQL
-- `public/` : Fichiers statiques 
-
-
+Qu'en pensez-vous ? Commençons-nous par ajouter les logs pour cerner l'erreur JavaScript ?

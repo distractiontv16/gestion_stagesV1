@@ -82,7 +82,11 @@ export function AdminStudentsTab() {
     try {
       // Cette requête pourrait être implémentée dans un contrôleur dédié
       // Pour l'instant, nous utilisons les filières stockées dans les paramètres
-      const response = await fetch('/api/admin/parametres/filiere');
+      const response = await fetch('/api/admin/parametres/filiere', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des filières');
@@ -98,16 +102,28 @@ export function AdminStudentsTab() {
         }));
         
         setFilieres(filieresData);
+      } else {
+        console.error('Format de données invalide:', data);
+        throw new Error('Format de données invalide pour les filières');
       }
     } catch (err) {
       console.error('Erreur lors du chargement des filières:', err);
+      setError(`Impossible de charger les filières: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
     }
   };
 
   // Chargement initial des données
   useEffect(() => {
     const loadData = async () => {
-      await Promise.all([fetchStudents(), fetchFilieres()]);
+      console.log('Début du chargement des données de l\'onglet étudiants');
+      try {
+        await fetchFilieres();
+        console.log('Filières chargées avec succès');
+        await fetchStudents();
+        console.log('Étudiants chargés avec succès');
+      } catch (err) {
+        console.error('Erreur lors du chargement initial des données:', err);
+      }
     };
     
     loadData();
@@ -115,7 +131,9 @@ export function AdminStudentsTab() {
 
   // Récupérer les données lorsque les filtres changent
   useEffect(() => {
-    fetchStudents();
+    if (pagination.page > 0 && filieres.length > 0) {
+      fetchStudents();
+    }
   }, [pagination.page, pagination.limit, filterFiliere, filterStatut]);
 
   // Fonction pour la recherche

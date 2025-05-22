@@ -4,7 +4,8 @@ import * as StatistiquesController from '../controllers/StatistiquesController.j
 import * as ParametresController from '../controllers/ParametresController.js';
 import * as EtudiantsController from '../controllers/EtudiantsController.js';
 import * as PropositionsController from '../controllers/PropositionsController.js';
-import pool from '../config/db.js';
+import db from '../config/db.js';
+const { query: pool } = db;
 
 const router = express.Router();
 
@@ -57,7 +58,7 @@ router.post('/debug', async (req, res) => {
     }
     
     console.log('Exécution de la requête de débogage SQL:', query);
-    const [results] = await pool.query(query);
+    const { rows: results } = await pool.query(query);
     
     res.status(200).json({
       success: true,

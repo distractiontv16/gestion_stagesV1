@@ -2,7 +2,8 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import pool from '../config/db.js';
+import db from '../config/db.js';
+const { query } = db;
 import dotenv from 'dotenv';
 import { protect } from '../middleware/auth.js';
 
@@ -37,15 +38,15 @@ router.post('/register', [
     const { nom, prenom, telephone, email, matricule, filiere_id, mot_de_passe, whatsapp } = req.body;
 
     // Check if user already exists with matricule
-    const [existingUsers] = await pool.query(
-      'SELECT * FROM utilisateurs WHERE matricule = ?', 
+    const { rows: existingUsers } = await query(
+      'SELECT * FROM utilisateurs WHERE matricule = $1', 
       [matricule]
     );
     
     // Vérifie l'email seulement si il est fourni
     if (email && email.trim() !== '') {
-      const [existingEmails] = await pool.query(
-        'SELECT * FROM utilisateurs WHERE email = ?', 
+      const { rows: existingEmails } = await query(
+        'SELECT * FROM utilisateurs WHERE email = $2', 
         [email]
       );
       
@@ -67,14 +68,14 @@ router.post('/register', [
     const hashedPassword = await bcrypt.hash(mot_de_passe, salt);
 
     // Insert user
-    const [result] = await pool.query(
-      'INSERT INTO utilisateurs (nom, prenom, telephone, email, matricule, filiere_id, mot_de_passe, whatsapp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    const { rows: result } = await query(
+      'INSERT INTO utilisateurs (nom, prenom, telephone, email, matricule, filiere_id, mot_de_passe, whatsapp) VALUES ($3, $4, $5, $6, $7, $8, $9, $10)',
       [nom, prenom, telephone, email || null, matricule, filiere_id, hashedPassword, whatsapp || null]
     );
 
     // Generate JWT
     const token = jwt.sign(
-      { id: result.insertId, role: 'etudiant' },
+      { id: result.rows[0].id, role: 'etudiant' },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRE }
     );
@@ -122,9 +123,14 @@ router.post('/login', async (req, res) => {
     
     console.log('Tentative de connexion pour:', { matricule: cleanMatricule, passwordProvided: !!passwordToCheck });
 
+    // LOGS AJOUTÉS POUR DIAGNOSTIC
+    console.log('[auth.js login] Contenu de db importé:', db);
+    console.log('[auth.js login] Type de query (avant appel):', typeof query);
+    // Fin des LOGS AJOUTÉS
+
     // Find user
-    const [users] = await pool.query(
-      'SELECT * FROM utilisateurs WHERE matricule = ?', 
+    const { rows: users } = await query(
+      'SELECT * FROM utilisateurs WHERE matricule = $1', 
       [cleanMatricule]
     );
 
@@ -208,8 +214,8 @@ router.post('/admin/login', async (req, res) => {
 
     // Find admin
     console.log('Recherche dans la table administrateurs...');
-    const [admins] = await pool.query(
-      'SELECT * FROM administrateurs WHERE matricule = ?', 
+    const { rows: admins } = await query(
+      'SELECT * FROM administrateurs WHERE matricule = $1', 
       [cleanMatricule]
     );
 
@@ -220,9 +226,9 @@ router.post('/admin/login', async (req, res) => {
       
       // Essayer de trouver dans la table utilisateurs avec rôle admin
       console.log('Recherche dans la table utilisateurs avec rôle admin...');
-      const [adminUsers] = await pool.query(
-        'SELECT * FROM utilisateurs WHERE matricule = ? AND role = "admin"', 
-        [cleanMatricule]
+      const { rows: adminUsers } = await query(
+        'SELECT * FROM utilisateurs WHERE matricule = $1 AND role = $2', 
+        [cleanMatricule, 'admin']
       );
       
       console.log('Résultat de la recherche utilisateur admin:', { count: adminUsers.length, found: adminUsers.length > 0 });
@@ -320,8 +326,8 @@ router.get('/me', protect, async (req, res) => {
     // Pour les admins, chercher d'abord dans la table administrateurs
     if (req.user.role === 'admin') {
       console.log('Admin détecté, recherche dans la table administrateurs avec matricule:', req.user.matricule);
-      const [admins] = await pool.query(
-        'SELECT id, matricule FROM administrateurs WHERE matricule = ?', 
+      const { rows: admins } = await query(
+        'SELECT id, matricule FROM administrateurs WHERE matricule = $1', 
         [req.user.matricule]
       );
       
@@ -343,8 +349,8 @@ router.get('/me', protect, async (req, res) => {
     // Pour tous les autres utilisateurs ou admins non trouvés dans administrateurs
     if (req.user.id) {
       console.log('Recherche utilisateur avec ID:', req.user.id);
-      const [users] = await pool.query(
-        'SELECT id, nom, prenom, email, matricule, telephone, filiere_id, role FROM utilisateurs WHERE id = ?',
+      const { rows: users } = await query(
+        'SELECT id, nom, prenom, email, matricule, telephone, filiere_id, role FROM utilisateurs WHERE id = $1',
         [req.user.id]
       );
 

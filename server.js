@@ -17,7 +17,7 @@ const app = express();
 
 // Configuration CORS plus détaillée
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3001'],
+  origin: '*',  // Permet toutes les origines en développement
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -27,29 +27,84 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 app.use(express.json());
+
+// Middleware pour logger les requêtes
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+// Middleware pour gérer les erreurs de parsing JSON
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('Erreur de parsing JSON:', err);
+    return res.status(400).json({ 
+      success: false, 
+      message: 'JSON invalide' 
+    });
+  }
+  next(err);
+});
 
 // Port configuration
 const PORT = process.env.PORT || 3000;
 
+// Fonction pour lister toutes les routes enregistrées
+const listRoutes = () => {
+  console.log('\n=== ROUTES ENREGISTRÉES ===');
+  app._router?.stack.forEach(middleware => {
+    if (middleware.route) {
+      // Routes registered directly
+      console.log(`${Object.keys(middleware.route.methods)[0].toUpperCase()} ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      // Router middleware
+      middleware.handle.stack.forEach(handler => {
+        if (handler.route) {
+          const method = Object.keys(handler.route.methods)[0].toUpperCase();
+          console.log(`${method} ${middleware.regexp} + ${handler.route.path}`);
+        }
+      });
+    }
+  });
+  console.log('=========================\n');
+};
+
 // Import routes dynamically
 const setupRoutes = async () => {
   try {
+    console.log('Chargement des routes...');
+    
     // Routes for auth
+    console.log('Chargement des routes auth...');
     const authRoutes = await import('./src/routes/auth.js');
     app.use('/api/auth', authRoutes.default);
+    console.log('Routes auth chargées avec succès');
     
     // Routes for internships
+    console.log('Chargement des routes internships...');
     const internshipsRoutes = await import('./src/routes/internships.js');
     app.use('/api/internships', internshipsRoutes.default);
+    console.log('Routes internships chargées avec succès');
     
     // Routes for admin
+    console.log('Chargement des routes admin...');
     const adminRoutes = await import('./src/routes/admin.js');
-    app.use('/api/admin', adminRoutes.default);
+    console.log('Type de adminRoutes:', typeof adminRoutes);
+    console.log('Type de adminRoutes.default:', typeof adminRoutes.default);
+    
+    if (adminRoutes.default && typeof adminRoutes.default === 'function') {
+      app.use('/api/admin', adminRoutes.default);
+      console.log('Routes admin chargées avec succès');
+    } else {
+      console.error('Erreur: adminRoutes.default n\'est pas un routeur valide');
+    }
     
     // Import the auth middleware
+    console.log('Chargement du middleware auth...');
     const authMiddleware = await import('./src/middleware/auth.js');
     
     // Example of protected routes
@@ -61,22 +116,27 @@ const setupRoutes = async () => {
     app.use('/api', testProtectedRoute);
     
     console.log('Routes loaded successfully');
+    
+    // List all registered routes
+    listRoutes();
   } catch (error) {
     console.error('Error loading routes:', error);
   }
   
   // Error handling middleware
-  app.use((err, req, res) => {
+  app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
     console.error('Server error:', err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
+      error: err.message || 'Erreur inconnue'
     });
   });
   
   // 404 handler
-  app.use((req, res) => {
-    res.status(404).json({
+  app.use((req, res, next) => { // eslint-disable-line no-unused-vars
+    console.log(`Route non trouvée: ${req.method} ${req.url}`);
+    return res.status(404).json({
       success: false,
       message: 'Route non trouvée'
     });

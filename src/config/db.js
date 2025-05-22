@@ -1,32 +1,52 @@
-import mysql from 'mysql2/promise';
+import pg from 'pg';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-// Create and export the connection pool
-const pool = mysql.createPool({
+// Configuration de la piscine de connexion PostgreSQL
+const pool = new pg.Pool({
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
+  user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'gestion_stages',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  port: process.env.DB_PORT || 5432,
+  max: 10, // Nombre maximum de connexions
+  idleTimeoutMillis: 30000 // Délai avant de fermer une connexion inactive
 });
 
-// Test the connection
+// Test de la connexion
 const testConnection = async () => {
   try {
-    await pool.query('SELECT 1');
-    console.log('Database connection successful');
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    console.log('Connexion PostgreSQL réussie');
   } catch (err) {
-    console.error('Database connection error:', err);
+    console.error('Erreur de connexion à PostgreSQL:', err);
     process.exit(1);
   }
 };
 
-// Execute the test
+// Exécuter le test
 testConnection();
 
-export default pool; 
+// Helper pour exécuter les requêtes plus facilement
+const query = async (text, params) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
+};
+
+console.log('[db.js] Type de pool:', typeof pool, pool instanceof pg.Pool);
+console.log('[db.js] Type de query exportée:', typeof query);
+
+// Exporter pool et query
+export default {
+  pool,
+  query
+}; 

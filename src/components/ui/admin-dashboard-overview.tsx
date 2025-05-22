@@ -79,7 +79,7 @@ export function AdminDashboardOverview() {
           addDebugLog(`Statistiques par filière: ${data.data.etudiantsParFiliere.length} filières trouvées`);
           const statsWithColors = data.data.etudiantsParFiliere.map((stat: any, index: number) => ({
             filiere: stat.filiere,
-            count: stat.count,
+            count: parseInt(stat.count),
             color: colors[index % colors.length]
           }));
           setStageStats(statsWithColors);
@@ -123,8 +123,8 @@ export function AdminDashboardOverview() {
           // Préparer les données pour les graphiques de filière
           const stats = data.data.map((param: any, index: number) => ({
             filiere: param.filiere_nom,
-            count: param.nb_etudiants,
-            stagesFound: Math.round(param.nb_etudiants * (param.pourcentage_reussite / 100)),
+            count: parseInt(param.nb_etudiants),
+            stagesFound: Math.round(parseInt(param.nb_etudiants) * (parseFloat(param.pourcentage_reussite) / 100)),
             color: colors[index % colors.length]
           }));
           setFiliereStats(stats);
@@ -164,7 +164,12 @@ export function AdminDashboardOverview() {
         if (data.success) {
           if (data.data && data.data.length > 0) {
             addDebugLog(`${data.data.length} entreprises trouvées`);
-            setEntrepriseStats(data.data);
+            // Conversion des valeurs de string en number si nécessaire
+            const formattedData = data.data.map((item: any) => ({
+              entreprise: item.entreprise,
+              nb_stages: typeof item.nb_stages === 'string' ? parseInt(item.nb_stages) : item.nb_stages
+            }));
+            setEntrepriseStats(formattedData);
           } else {
             addDebugLog('Aucune statistique par entreprise trouvée');
           }
@@ -265,7 +270,7 @@ export function AdminDashboardOverview() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière</h3>
           <div className="h-64">
-            {stageStats.length > 0 ? (
+            {stageStats && stageStats.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -276,14 +281,20 @@ export function AdminDashboardOverview() {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="count"
+                    nameKey="filiere"
                     label={({ filiere, count }) => `${filiere}: ${count}`}
+                    labelLine={false}
+                    isAnimationActive={true}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
                     {stageStats.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip formatter={(value) => [`${value} étudiants`, 'Nombre']} />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -298,17 +309,26 @@ export function AdminDashboardOverview() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-4">Stages par entreprise</h3>
           <div className="h-64">
-            {entrepriseStats.length > 0 ? (
+            {entrepriseStats && entrepriseStats.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={entrepriseStats}
                   layout="vertical"
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
                 >
-                  <XAxis type="number" />
-                  <YAxis dataKey="entreprise" type="category" width={100} />
-                  <Tooltip />
-                  <Bar dataKey="nb_stages" fill="#3B82F6" />
+                  <XAxis type="number" domain={[0, 'dataMax + 1']} />
+                  <YAxis dataKey="entreprise" type="category" width={110} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => [`${value} stages`, 'Nombre']} />
+                  <Bar 
+                    dataKey="nb_stages" 
+                    name="Nombre de stages" 
+                    fill="#3B82F6" 
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={true}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -327,26 +347,35 @@ export function AdminDashboardOverview() {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière (détaillé)</h3>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={filiereStats}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="count"
-                    label={({ filiere, count }) => `${filiere}: ${count}`}
-                  >
-                    {filiereStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              {filiereStats && filiereStats.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={filiereStats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="count"
+                      nameKey="filiere"
+                      label={({ filiere, count }) => `${filiere}: ${count}`}
+                      labelLine={false}
+                      isAnimationActive={true}
+                    >
+                      {filiereStats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name, props) => [`${value} étudiants`, props.payload.filiere]} />
+                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  Aucune donnée détaillée disponible
+                </div>
+              )}
             </div>
           </div>
           
@@ -354,19 +383,45 @@ export function AdminDashboardOverview() {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-sm font-medium text-gray-500 mb-4">Stages trouvés vs étudiants par filière</h3>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={filiereStats}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <XAxis dataKey="filiere" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="stagesFound" name="Stages trouvés" fill="#3B82F6" />
-                  <Bar dataKey="count" name="Étudiants total" fill="#60A5FA" />
-                </BarChart>
-              </ResponsiveContainer>
+              {filiereStats && filiereStats.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={filiereStats}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+                    barGap={0}
+                    barCategoryGap="20%"
+                  >
+                    <XAxis 
+                      dataKey="filiere" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={60} 
+                      tick={{ fontSize: 12 }} 
+                    />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`${value} étudiants`, '']} />
+                    <Legend wrapperStyle={{ paddingTop: "10px" }} />
+                    <Bar 
+                      dataKey="stagesFound" 
+                      name="Stages trouvés" 
+                      fill="#3B82F6" 
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={true}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      name="Étudiants total" 
+                      fill="#60A5FA" 
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={true}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  Aucune donnée disponible
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import pool from '../config/db.js';
+import db from '../config/db.js';
+const { query: pool } = db;
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -19,7 +20,7 @@ router.get('/user/:userId', protect, async (req, res) => {
     }
 
     // Récupérer les informations de stage
-    const [stages] = await pool.query(`
+    const { rows: stages } = await pool.query(`
       SELECT s.*, e.nom as nom_entreprise, e.departement, e.commune, e.quartier,
              ms.nom as nom_maitre_stage, ms.prenom as prenom_maitre_stage, 
              ms.telephone as telephone_maitre_stage, ms.email as email_maitre_stage, 
@@ -30,7 +31,7 @@ router.get('/user/:userId', protect, async (req, res) => {
       LEFT JOIN entreprises e ON s.entreprise_id = e.id
       LEFT JOIN maitres_stage ms ON s.maitre_stage_id = ms.id
       LEFT JOIN maitres_memoire mm ON s.maitre_memoire_id = mm.id
-      WHERE s.etudiant_id = ?
+      WHERE s.etudiant_id = $1
     `, [userId]);
 
     res.status(200).json({
@@ -102,13 +103,13 @@ router.post('/submit', protect, [
     } = req.body;
 
     // Début d'une transaction
-    const connection = await pool.getConnection();
-    await connection.beginTransaction();
+    const client = await pool.connect();
+    await client.query('BEGIN');
 
     try {
       // 1. Vérifier si l'entreprise existe déjà
-      let [existingEnterprise] = await connection.query(
-        'SELECT id FROM entreprises WHERE nom = ? AND departement = ? AND commune = ? AND quartier = ?',
+      let [existingEnterprise] = await client.query(
+        'SELECT id FROM entreprises WHERE nom = $3 AND departement = $4 AND commune = $5 AND quartier = $6',
         [nomEntreprise, departement, commune, quartier]
       );
 
@@ -116,18 +117,18 @@ router.post('/submit', protect, [
       
       // Si l'entreprise n'existe pas, l'ajouter
       if (existingEnterprise.length === 0) {
-        const [newEnterprise] = await connection.query(
-          'INSERT INTO entreprises (nom, departement, commune, quartier) VALUES (?, ?, ?, ?)',
+        const [newEnterprise] = await client.query(
+          'INSERT INTO entreprises (nom, departement, commune, quartier) VALUES ($7, $8, $9, $10)',
           [nomEntreprise, departement, commune, quartier]
         );
-        entrepriseId = newEnterprise.insertId;
+        entrepriseId = newEnterprise.rows[0].id;
       } else {
         entrepriseId = existingEnterprise[0].id;
       }
 
       // 2. Vérifier si le maître de stage existe déjà
-      let [existingMaitreStage] = await connection.query(
-        'SELECT id FROM maitres_stage WHERE nom = ? AND prenom = ? AND email = ?',
+      let [existingMaitreStage] = await client.query(
+        'SELECT id FROM maitres_stage WHERE nom = $11 AND prenom = $12 AND email = $13',
         [nomMaitreStage, prenomMaitreStage, emailMaitreStage]
       );
 
@@ -135,23 +136,23 @@ router.post('/submit', protect, [
       
       // Si le maître de stage n'existe pas, l'ajouter
       if (existingMaitreStage.length === 0) {
-        const [newMaitreStage] = await connection.query(
-          'INSERT INTO maitres_stage (nom, prenom, telephone, email, fonction, entreprise_id) VALUES (?, ?, ?, ?, ?, ?)',
+        const [newMaitreStage] = await client.query(
+          'INSERT INTO maitres_stage (nom, prenom, telephone, email, fonction, entreprise_id) VALUES ($14, $15, $16, $17, $18, $19)',
           [nomMaitreStage, prenomMaitreStage, telephoneMaitreStage, emailMaitreStage, fonctionMaitreStage, entrepriseId]
         );
-        maitreStageId = newMaitreStage.insertId;
+        maitreStageId = newMaitreStage.rows[0].id;
       } else {
         maitreStageId = existingMaitreStage[0].id;
         // Mettre à jour les informations du maître de stage
-        await connection.query(
-          'UPDATE maitres_stage SET telephone = ?, fonction = ?, entreprise_id = ? WHERE id = ?',
+        await client.query(
+          'UPDATE maitres_stage SET telephone = $20, fonction = $21, entreprise_id = $22 WHERE id = $23',
           [telephoneMaitreStage, fonctionMaitreStage, entrepriseId, maitreStageId]
         );
       }
 
       // 3. Vérifier si le maître de mémoire existe déjà
-      let [existingMaitreMemoire] = await connection.query(
-        'SELECT id FROM maitres_memoire WHERE nom = ? AND email = ?',
+      let [existingMaitreMemoire] = await client.query(
+        'SELECT id FROM maitres_memoire WHERE nom = $24 AND email = $25',
         [nomMaitreMemoire, emailMaitreMemoire]
       );
 
@@ -159,23 +160,23 @@ router.post('/submit', protect, [
       
       // Si le maître de mémoire n'existe pas, l'ajouter
       if (existingMaitreMemoire.length === 0) {
-        const [newMaitreMemoire] = await connection.query(
-          'INSERT INTO maitres_memoire (nom, telephone, email, statut) VALUES (?, ?, ?, ?)',
+        const [newMaitreMemoire] = await client.query(
+          'INSERT INTO maitres_memoire (nom, telephone, email, statut) VALUES ($26, $27, $28, $29)',
           [nomMaitreMemoire, telephoneMaitreMemoire, emailMaitreMemoire, statutMaitreMemoire]
         );
-        maitreMemoireId = newMaitreMemoire.insertId;
+        maitreMemoireId = newMaitreMemoire.rows[0].id;
       } else {
         maitreMemoireId = existingMaitreMemoire[0].id;
         // Mettre à jour les informations du maître de mémoire
-        await connection.query(
-          'UPDATE maitres_memoire SET telephone = ?, statut = ? WHERE id = ?',
+        await client.query(
+          'UPDATE maitres_memoire SET telephone = $30, statut = $31 WHERE id = $32',
           [telephoneMaitreMemoire, statutMaitreMemoire, maitreMemoireId]
         );
       }
 
       // 4. Vérifier si un stage existe déjà pour cet étudiant
-      const [existingStage] = await connection.query(
-        'SELECT id FROM stages WHERE etudiant_id = ?',
+      const [existingStage] = await client.query(
+        'SELECT id FROM stages WHERE etudiant_id = $33',
         [req.user.id]
       );
 
@@ -183,36 +184,34 @@ router.post('/submit', protect, [
       
       // Si le stage n'existe pas, l'ajouter
       if (existingStage.length === 0) {
-        const [newStage] = await connection.query(
-          'INSERT INTO stages (etudiant_id, entreprise_id, maitre_stage_id, maitre_memoire_id, date_debut, date_fin, theme_memoire) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        const [newStage] = await client.query(
+          'INSERT INTO stages (etudiant_id, entreprise_id, maitre_stage_id, maitre_memoire_id, date_debut, date_fin, theme_memoire) VALUES ($34, $35, $36, $37, $38, $39, $40)',
           [req.user.id, entrepriseId, maitreStageId, maitreMemoireId, dateDebutStage, dateFinStage || null, themeMemoire]
         );
-        stageId = newStage.insertId;
+        stageId = newStage.rows[0].id;
       } else {
         stageId = existingStage[0].id;
         // Mettre à jour les informations du stage
-        await connection.query(
-          'UPDATE stages SET entreprise_id = ?, maitre_stage_id = ?, maitre_memoire_id = ?, date_debut = ?, date_fin = ?, theme_memoire = ? WHERE id = ?',
+        await client.query(
+          'UPDATE stages SET entreprise_id = $41, maitre_stage_id = $42, maitre_memoire_id = $43, date_debut = $44, date_fin = $45, theme_memoire = $46 WHERE id = $47',
           [entrepriseId, maitreStageId, maitreMemoireId, dateDebutStage, dateFinStage || null, themeMemoire, stageId]
         );
       }
 
       // Commit de la transaction
-      await connection.commit();
-      
-      res.status(200).json({
-        success: true,
-        message: 'Informations de stage enregistrées avec succès',
-        stageId: stageId
-      });
+      await client.query('COMMIT');
+client.release();
     } catch (error) {
       // Rollback en cas d'erreur
-      await connection.rollback();
+      await client.query('ROLLBACK');
+      client.release();
       throw error;
-    } finally {
-      // Libération de la connexion
-      connection.release();
     }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Informations de stage enregistrées avec succès'
+    });
     
   } catch (error) {
     console.error('Submit internship error:', error);

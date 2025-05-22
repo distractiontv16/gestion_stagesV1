@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import db from '../config/db.js';
-const { query } = db;
+import pool from '../config/db.js';
 
 dotenv.config();
 
@@ -40,8 +39,8 @@ export const protect = async (req, res, next) => {
         }
         
         // Get admin from database (cas standard)
-        const { rows: admins } = await query(
-          'SELECT id, matricule FROM administrateurs WHERE id = $1',
+        const [admins] = await pool.query(
+          'SELECT id, matricule FROM administrateurs WHERE id = ?',
           [decoded.id]
         );
         
@@ -49,9 +48,9 @@ export const protect = async (req, res, next) => {
         
         if (admins.length === 0) {
           // Essayer de chercher l'admin dans la table utilisateurs
-          const { rows: users } = await query(
-            'SELECT id, nom, prenom, email, matricule, role FROM utilisateurs WHERE id = $1 AND role = $2',
-            [decoded.id, 'admin']
+          const [users] = await pool.query(
+            'SELECT id, nom, prenom, email, matricule, role FROM utilisateurs WHERE id = ? AND role = "admin"',
+            [decoded.id]
           );
           
           console.log('Recherche admin dans table utilisateurs:', { count: users.length });
@@ -86,8 +85,8 @@ export const protect = async (req, res, next) => {
         }
       } else {
         // Get user from database
-        const { rows: users } = await query(
-          'SELECT id, nom, prenom, email, matricule, filiere_id, role FROM utilisateurs WHERE id = $1',
+        const [users] = await pool.query(
+          'SELECT id, nom, prenom, email, matricule, filiere_id, role FROM utilisateurs WHERE id = ?',
           [decoded.id]
         );
         

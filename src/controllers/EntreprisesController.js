@@ -1,4 +1,5 @@
-import pool from '../config/db.js';
+import db from '../config/db.js';
+const { query } = db;
 
 /**
  * Récupère la liste des entreprises avec pagination et filtrage
@@ -30,26 +31,26 @@ export const getEntreprises = async (req, res) => {
     
     // Ajout des filtres si spécifiés
     if (nom) {
-      query += ` AND nom LIKE ?`;
+      query += ` AND nom LIKE $1`;
       queryParams.push(`%${nom}%`);
     }
     
     if (secteur) {
-      query += ` AND secteur LIKE ?`;
+      query += ` AND secteur LIKE $2`;
       queryParams.push(`%${secteur}%`);
     }
     
     if (ville) {
-      query += ` AND ville LIKE ?`;
+      query += ` AND ville LIKE $3`;
       queryParams.push(`%${ville}%`);
     }
     
     // Ajout de l'ordre et de la pagination
-    query += ` ORDER BY nom ASC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY nom ASC LIMIT $4 OFFSET $5`;
     queryParams.push(parseInt(limit), parseInt(offset));
     
     // Exécution de la requête
-    const [entreprises] = await pool.query(query, queryParams);
+    const { rows: entreprises } = await query(query, queryParams);
     
     // Récupération du nombre total d'entreprises (pour la pagination)
     let countQuery = `
@@ -62,22 +63,22 @@ export const getEntreprises = async (req, res) => {
     
     // Ajout des mêmes filtres pour le comptage
     if (nom) {
-      countQuery += ` AND nom LIKE ?`;
+      countQuery += ` AND nom LIKE $6`;
       countParams.push(`%${nom}%`);
     }
     
     if (secteur) {
-      countQuery += ` AND secteur LIKE ?`;
+      countQuery += ` AND secteur LIKE $7`;
       countParams.push(`%${secteur}%`);
     }
     
     if (ville) {
-      countQuery += ` AND ville LIKE ?`;
+      countQuery += ` AND ville LIKE $8`;
       countParams.push(`%${ville}%`);
     }
     
     // Exécution de la requête de comptage
-    const [countResult] = await pool.query(countQuery, countParams);
+    const { rows: countResult } = await query(countQuery, countParams);
     const totalEntreprises = countResult[0].total;
     
     // Calcul du nombre total de pages
@@ -113,7 +114,7 @@ export const getEntrepriseById = async (req, res) => {
   
   try {
     // Récupération de l'entreprise
-    const [entreprise] = await pool.query(
+    const { rows: entreprise } = await query(
       `SELECT 
         id,
         nom,
@@ -127,7 +128,7 @@ export const getEntrepriseById = async (req, res) => {
       FROM 
         entreprises
       WHERE 
-        id = ?`,
+        id = $1`,
       [id]
     );
     
@@ -139,7 +140,7 @@ export const getEntrepriseById = async (req, res) => {
     }
     
     // Récupération des propositions de stage liées à l'entreprise
-    const [propositions] = await pool.query(
+    const { rows: propositions } = await query(
       `SELECT 
         id, 
         titre, 
@@ -150,14 +151,12 @@ export const getEntrepriseById = async (req, res) => {
       FROM 
         propositions_stages
       WHERE 
-        company = ?
-      ORDER BY 
-        date_publication DESC`,
+        company = $1`,
       [entreprise[0].nom]
     );
     
     // Récupération des statistiques de l'entreprise
-    const [statsData] = await pool.query(
+    const { rows: statsResults } = await query(
       `SELECT
         e.nom,
         COUNT(DISTINCT s.id) as nombre_stages,
@@ -167,13 +166,11 @@ export const getEntrepriseById = async (req, res) => {
       LEFT JOIN
         stages s ON e.nom = s.entreprise_nom
       WHERE
-        e.id = ?
-      GROUP BY
-        e.id`,
+        e.id = $1`,
       [id]
     );
     
-    const stats = statsData.length > 0 ? statsData[0] : { nombre_stages: 0, nombre_etudiants: 0 };
+    const stats = statsResults.length > 0 ? statsResults[0] : { nombre_stages: 0, nombre_etudiants: 0 };
     
     res.status(200).json({
       success: true,
@@ -209,8 +206,8 @@ export const createEntreprise = async (req, res) => {
   
   try {
     // Vérifier si l'entreprise existe déjà
-    const [existingEntreprise] = await pool.query(
-      'SELECT * FROM entreprises WHERE nom = ?',
+    const { rows: existingEntreprise } = await query(
+      'SELECT * FROM entreprises WHERE nom = $1',
       [nom]
     );
     
@@ -222,7 +219,7 @@ export const createEntreprise = async (req, res) => {
     }
     
     // Insérer la nouvelle entreprise
-    const [result] = await pool.query(
+    const { rows: result } = await query(
       `INSERT INTO entreprises (
         nom, 
         secteur, 
@@ -232,12 +229,12 @@ export const createEntreprise = async (req, res) => {
         telephone, 
         email, 
         site_web
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [nom, secteur, adresse || null, ville, pays || null, telephone || null, email || null, site_web || null]
     );
     
     // Enregistrement de l'activité récente
-    await pool.query(
+    await query(
       `INSERT INTO activites_recentes (
         type_activite,
         type,
@@ -246,7 +243,7 @@ export const createEntreprise = async (req, res) => {
         date_activite,
         date_creation,
         user_id
-      ) VALUES (?, ?, ?, ?, CURDATE(), NOW(), ?)`,
+      ) VALUES ($1, $2, $3, $4, CURRENT_DATE, NOW(), $5)`,
       ['entreprises', 'entreprise', `Nouvelle entreprise ajoutée: "${nom}"`, 1, null]
     );
     
@@ -254,7 +251,7 @@ export const createEntreprise = async (req, res) => {
       success: true,
       message: 'Entreprise créée avec succès',
       data: {
-        id: result.insertId
+        id: result.rows[0].id
       }
     });
   } catch (error) {
@@ -284,8 +281,8 @@ export const updateEntreprise = async (req, res) => {
   
   try {
     // Vérifier si l'entreprise existe
-    const [existingEntreprise] = await pool.query(
-      'SELECT * FROM entreprises WHERE id = ?',
+    const { rows: existingEntreprise } = await query(
+      'SELECT * FROM entreprises WHERE id = $1',
       [id]
     );
     
@@ -298,8 +295,8 @@ export const updateEntreprise = async (req, res) => {
     
     // Si le nom est modifié, vérifier qu'il n'existe pas déjà
     if (nom && nom !== existingEntreprise[0].nom) {
-      const [existingByName] = await pool.query(
-        'SELECT * FROM entreprises WHERE nom = ? AND id != ?',
+      const { rows: existingByName } = await query(
+        'SELECT * FROM entreprises WHERE nom = $1 AND id != $2',
         [nom, id]
       );
       
@@ -316,42 +313,42 @@ export const updateEntreprise = async (req, res) => {
     const queryParams = [];
     
     if (nom) {
-      updateFields.push('nom = ?');
+      updateFields.push('nom = $1');
       queryParams.push(nom);
     }
     
     if (secteur) {
-      updateFields.push('secteur = ?');
+      updateFields.push('secteur = $2');
       queryParams.push(secteur);
     }
     
     if (adresse !== undefined) {
-      updateFields.push('adresse = ?');
+      updateFields.push('adresse = $3');
       queryParams.push(adresse);
     }
     
     if (ville) {
-      updateFields.push('ville = ?');
+      updateFields.push('ville = $4');
       queryParams.push(ville);
     }
     
     if (pays !== undefined) {
-      updateFields.push('pays = ?');
+      updateFields.push('pays = $5');
       queryParams.push(pays);
     }
     
     if (telephone !== undefined) {
-      updateFields.push('telephone = ?');
+      updateFields.push('telephone = $6');
       queryParams.push(telephone);
     }
     
     if (email !== undefined) {
-      updateFields.push('email = ?');
+      updateFields.push('email = $7');
       queryParams.push(email);
     }
     
     if (site_web !== undefined) {
-      updateFields.push('site_web = ?');
+      updateFields.push('site_web = $8');
       queryParams.push(site_web);
     }
     
@@ -359,10 +356,10 @@ export const updateEntreprise = async (req, res) => {
     queryParams.push(id);
     
     // Exécution de la mise à jour
-    await pool.query(
+    await query(
       `UPDATE entreprises
       SET ${updateFields.join(', ')}
-      WHERE id = ?`,
+      WHERE id = $9`,
       queryParams
     );
     
@@ -388,8 +385,8 @@ export const deleteEntreprise = async (req, res) => {
   
   try {
     // Vérifier si l'entreprise existe
-    const [existingEntreprise] = await pool.query(
-      'SELECT * FROM entreprises WHERE id = ?',
+    const { rows: existingEntreprise } = await query(
+      'SELECT * FROM entreprises WHERE id = $1',
       [id]
     );
     
@@ -401,13 +398,13 @@ export const deleteEntreprise = async (req, res) => {
     }
     
     // Vérifier si l'entreprise a des stages ou des propositions associées
-    const [stagesCount] = await pool.query(
-      'SELECT COUNT(*) as count FROM stages WHERE entreprise_nom = ?',
+    const { rows: stagesCount } = await query(
+      'SELECT COUNT(*) as count FROM stages WHERE entreprise_nom = $1',
       [existingEntreprise[0].nom]
     );
     
-    const [propositionsCount] = await pool.query(
-      'SELECT COUNT(*) as count FROM propositions_stages WHERE company = ?',
+    const { rows: propositionsCount } = await query(
+      'SELECT COUNT(*) as count FROM propositions_stages WHERE company = $1',
       [existingEntreprise[0].nom]
     );
     
@@ -419,8 +416,8 @@ export const deleteEntreprise = async (req, res) => {
     }
     
     // Supprimer l'entreprise
-    await pool.query(
-      'DELETE FROM entreprises WHERE id = ?',
+    await query(
+      'DELETE FROM entreprises WHERE id = $1',
       [id]
     );
     
@@ -444,7 +441,7 @@ export const deleteEntreprise = async (req, res) => {
 export const getEntrepriseStats = async (req, res) => {
   try {
     // Récupération des statistiques des entreprises
-    const [entrepriseStats] = await pool.query(
+    const { rows: entrepriseStats } = await query(
       `SELECT
         COUNT(*) as total_entreprises,
         COUNT(DISTINCT e.secteur) as total_secteurs,
@@ -454,7 +451,7 @@ export const getEntrepriseStats = async (req, res) => {
     );
     
     // Récupération du top 5 des entreprises par nombre de stages
-    const [topEntreprises] = await pool.query(
+    const { rows: topEntreprises } = await query(
       `SELECT
         e.nom,
         COUNT(s.id) as nombre_stages
@@ -470,7 +467,7 @@ export const getEntrepriseStats = async (req, res) => {
     );
     
     // Récupération des entreprises par secteur
-    const [entreprisesBySecteur] = await pool.query(
+    const { rows: entreprisesBySecteur } = await query(
       `SELECT
         secteur,
         COUNT(*) as nombre

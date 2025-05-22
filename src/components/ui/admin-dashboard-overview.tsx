@@ -23,19 +23,25 @@ interface Activite {
   prenom: string | null;
 }
 
+interface FiliereStats {
+  filiere: string;
+  count: number;
+  stagesFound: number;
+  color: string;
+}
+
 export function AdminDashboardOverview() {
   // États pour stocker les données
   const [stageStats, setStageStats] = useState<StageStats[]>([]);
+  const [filiereStats, setFiliereStats] = useState<FiliereStats[]>([]);
   const [entrepriseStats, setEntrepriseStats] = useState<EntrepriseStats[]>([]);
   const [activitesRecentes, setActivitesRecentes] = useState<Activite[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   // Fonction pour ajouter des logs de débogage
   const addDebugLog = (message: string) => {
     console.log(`[DEBUG] ${message}`);
-    setDebugLogs(prev => [...prev, `${new Date().toISOString()} - ${message}`]);
   };
 
   // Couleurs pour le graphique
@@ -47,7 +53,17 @@ export function AdminDashboardOverview() {
       try {
         setLoading(true);
         addDebugLog("Démarrage de la requête API: /api/admin/statistiques");
-        const response = await fetch('/api/admin/statistiques');
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Token d\'authentification non trouvé');
+        }
+        
+        const response = await fetch('/api/admin/statistiques', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         addDebugLog(`Réponse reçue - Status: ${response.status}`);
         
@@ -83,11 +99,58 @@ export function AdminDashboardOverview() {
       }
     };
     
+    // Fonction pour charger les paramètres par filière
+    const fetchParametresFiliere = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Token d\'authentification non trouvé');
+        }
+        
+        const response = await fetch('/api/admin/parametres/filiere', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erreur API paramètres filière: ${response.status} - ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          // Préparer les données pour les graphiques de filière
+          const stats = data.data.map((param: any, index: number) => ({
+            filiere: param.filiere_nom,
+            count: param.nb_etudiants,
+            stagesFound: Math.round(param.nb_etudiants * (param.pourcentage_reussite / 100)),
+            color: colors[index % colors.length]
+          }));
+          setFiliereStats(stats);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors du chargement des paramètres par filière:', err);
+        addDebugLog(`Erreur lors du chargement des paramètres par filière: ${errorMessage}`);
+      }
+    };
+    
     // Fonction pour charger les statistiques par entreprise
     const fetchStatistiquesEntreprise = async () => {
       try {
         addDebugLog("Démarrage de la requête API: /api/admin/statistiques/entreprise");
-        const response = await fetch('/api/admin/statistiques/entreprise');
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Token d\'authentification non trouvé');
+        }
+        
+        const response = await fetch('/api/admin/statistiques/entreprise', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         addDebugLog(`Réponse statistiques entreprise - Status: ${response.status}`);
         
@@ -119,7 +182,17 @@ export function AdminDashboardOverview() {
     const fetchActivitesRecentes = async () => {
       try {
         addDebugLog("Démarrage de la requête API: /api/admin/activites");
-        const response = await fetch('/api/admin/activites');
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Token d\'authentification non trouvé');
+        }
+        
+        const response = await fetch('/api/admin/activites', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         addDebugLog(`Réponse activités - Status: ${response.status}`);
         
@@ -155,6 +228,7 @@ export function AdminDashboardOverview() {
       await fetchStatistiquesGenerales();
       await fetchStatistiquesEntreprise();
       await fetchActivitesRecentes();
+      await fetchParametresFiliere();
       addDebugLog('Fin du chargement des données');
     };
     
@@ -179,32 +253,14 @@ export function AdminDashboardOverview() {
       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
         <strong className="font-bold">Erreur:</strong>
         <span className="block sm:inline"> {error}</span>
-        
-        <div className="mt-4">
-          <h3 className="font-semibold">Logs de débogage:</h3>
-          <div className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-64">
-            {debugLogs.map((log, index) => (
-              <div key={index} className="mb-1">{log}</div>
-            ))}
-          </div>
-        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Logs de débogage pour l'utilisateur */}
-      <div className="bg-gray-100 p-4 rounded-lg mb-4 overflow-hidden">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Debug logs ({debugLogs.length})</h3>
-        <div className="bg-white p-3 rounded text-xs overflow-auto max-h-40 border border-gray-200">
-          {debugLogs.map((log, index) => (
-            <div key={index} className="mb-1 font-mono">{log}</div>
-          ))}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Première rangée: statistiques principales - 2 colonnes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Statistiques des étudiants par filière */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière</h3>
@@ -262,38 +318,94 @@ export function AdminDashboardOverview() {
             )}
           </div>
         </div>
-        
-        {/* Résumé des activités récentes */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Résumé des activités récentes</h3>
+      </div>
+      
+      {/* Deuxième rangée: graphiques des filières */}
+      {filiereStats.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Graphique des étudiants par filière */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière (détaillé)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={filiereStats}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="count"
+                    label={({ filiere, count }) => `${filiere}: ${count}`}
+                  >
+                    {filiereStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
           
-          <div className="space-y-4">
-            {activitesRecentes.length > 0 ? (
-              activitesRecentes.slice(0, 5).map(activite => (
-                <div key={activite.id} className="flex justify-between items-center">
-                  <div>
+          {/* Graphique stages trouvés vs requis */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-sm font-medium text-gray-500 mb-4">Stages trouvés vs étudiants par filière</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={filiereStats}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <XAxis dataKey="filiere" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="stagesFound" name="Stages trouvés" fill="#3B82F6" />
+                  <Bar dataKey="count" name="Étudiants total" fill="#60A5FA" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Troisième rangée: activités récentes en format horizontal */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-sm font-medium text-gray-500 mb-4">Activités récentes</h3>
+        
+        {activitesRecentes.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {activitesRecentes.slice(0, 5).map(activite => (
+              <div key={activite.id} className="bg-gray-50 p-3 rounded">
+                <div className="flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-medium">{activite.description}</p>
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                      activite.type === 'proposition_stage' ? 'bg-blue-100 text-blue-800' :
+                      activite.type === 'inscription' ? 'bg-green-100 text-green-800' :
+                      activite.type === 'convention' ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {activite.type === 'proposition_stage' ? 'Stage' :
+                      activite.type === 'inscription' ? 'Inscription' :
+                      activite.type === 'convention' ? 'Convention' : 'Action'}
+                    </span>
+                  </div>
+                  <div className="mt-auto">
                     <p className="text-xs text-gray-500">
                       {new Date(activite.date_creation).toLocaleDateString()} par {activite.nom ? `${activite.prenom} ${activite.nom}` : 'Système'}
                     </p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    activite.type === 'proposition_stage' ? 'bg-blue-100 text-blue-800' :
-                    activite.type === 'inscription' ? 'bg-green-100 text-green-800' :
-                    activite.type === 'convention' ? 'bg-purple-100 text-purple-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {activite.type === 'proposition_stage' ? 'Stage' :
-                     activite.type === 'inscription' ? 'Inscription' :
-                     activite.type === 'convention' ? 'Convention' : 'Action'}
-                  </span>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">Aucune activité récente</p>
-            )}
+              </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          <p className="text-sm text-gray-500">Aucune activité récente</p>
+        )}
       </div>
     </div>
   );

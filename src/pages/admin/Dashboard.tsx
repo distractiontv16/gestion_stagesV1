@@ -6,6 +6,7 @@ import { AdminProjetsTab } from '@/components/ui/admin-projets-tab';
 import { AdminDashboardOverview } from '@/components/ui/admin-dashboard-overview';
 import { AdminStudentsTab } from '@/components/ui/admin-students-tab';
 import { AdminParametresTab } from '@/components/ui/admin-parametres-tab';
+import { AdminSystemParams } from '@/components/ui/admin-system-params';
 
 // Interface pour les informations d'utilisateur
 interface UserInfo {
@@ -372,7 +373,10 @@ const AdminDashboard = () => {
           )}
           
           {activeTab === 'parametres' && (
-            <AdminParametresTab />
+            <div className="space-y-10">
+              <AdminParametresTab />
+              <AdminSystemParams />
+            </div>
           )}
 
           {activeTab === 'proposals' && (

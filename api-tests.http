@@ -88,6 +88,17 @@ Authorization: Bearer {{token}}
   "query": "SELECT * FROM activites_recentes LIMIT 5;"
 }
 
+### Tests des routes de paramètres admin
 
+### Test des paramètres par filière (devrait fonctionner)
+GET {{baseUrl}}/api/admin/parametres/filiere
+Authorization: Bearer {{token}}
 
-api-tests.http   generateHash.js    requests.http  sql
+### Test des paramètres système (à déboguer)
+GET {{baseUrl}}/api/admin/parametres/systeme
+Authorization: Bearer {{token}}
+
+### Test direct avec curl pour paramètres système
+# Exécuter dans un terminal:
+# curl -X GET http://localhost:3000/api/admin/parametres/systeme -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6ImFkbWluIiwibWF0cmljdWxlIjoiQURNSU4wMDEiLCJpYXQiOjE3NDc4NjQ3NjIsImV4cCI6MTc0NzkwNzk2Mn0.SEBjnP_9dyKtgTYN9gQQhy5Jbo8ghEKDWZBcOl5kIxY"
+

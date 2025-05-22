@@ -1,19 +1,4 @@
 import { useState, useEffect } from 'react';
-import { PieChart, Pie, ResponsiveContainer, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-
-// Liste des filières
-const filieres = [
-  { id: 1, nom: 'GEI/EE' },
-  { id: 2, nom: 'GEI/IT' },
-  { id: 3, nom: 'GE/ER' },
-  { id: 4, nom: 'GMP' },
-  { id: 5, nom: 'MSY/MI' },
-  { id: 6, nom: 'ER/SE' },
-  { id: 7, nom: 'GC/A' },
-  { id: 8, nom: 'GC/B' },
-  { id: 9, nom: 'MSY/MA' },
-  { id: 10, nom: 'GE/FC' },
-];
 
 // Interface pour les paramètres
 interface Parametre {
@@ -25,17 +10,8 @@ interface Parametre {
   pourcentage_reussite: number;
 }
 
-// Interface pour les statistiques
-interface StageStats {
-  filiere: string;
-  count: number;
-  color: string;
-  stagesFound: number;
-}
-
 export function AdminParametresTab() {
   const [parametres, setParametres] = useState<Parametre[]>([]);
-  const [stageStats, setStageStats] = useState<StageStats[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -44,15 +20,27 @@ export function AdminParametresTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Partial<Parametre>>({});
   
-  // Couleurs pour le graphique
-  const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
-
+  // Mode sombre (préparation pour fonctionnalité future)
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  // Rappels (préparation pour fonctionnalité future)
+  const [reminders, setReminders] = useState<boolean>(true);
+  
   // Charger les données
   useEffect(() => {
     const fetchParametresFiliere = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/parametres/filiere');
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Token d\'authentification non trouvé');
+        }
+        
+        const response = await fetch('/api/admin/parametres/filiere', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Erreur lors du chargement des paramètres');
@@ -62,15 +50,6 @@ export function AdminParametresTab() {
         
         if (data.success && data.data) {
           setParametres(data.data);
-          
-          // Préparer les données pour les graphiques
-          const statsData = data.data.map((param: Parametre, index: number) => ({
-            filiere: param.filiere_nom,
-            count: param.nb_etudiants,
-            stagesFound: Math.round(param.nb_etudiants * (param.pourcentage_reussite / 100)),
-            color: colors[index % colors.length]
-          }));
-          setStageStats(statsData);
         }
       } catch (err) {
         console.error('Erreur:', err);
@@ -133,21 +112,6 @@ export function AdminParametresTab() {
             : param
         ));
         
-        // Mettre à jour les statistiques
-        setStageStats(stageStats.map(stat => {
-          const updatedParam = parametres.find(p => p.filiere_nom === stat.filiere && p.id === id);
-          if (updatedParam) {
-            return {
-              ...stat,
-              count: editValues.nb_etudiants || stat.count,
-              stagesFound: editValues.nb_etudiants 
-                ? Math.round((editValues.nb_etudiants || 0) * ((editValues.pourcentage_reussite || 0) / 100)) 
-                : stat.stagesFound
-            };
-          }
-          return stat;
-        }));
-        
         setSuccess('Paramètres mis à jour avec succès');
         setTimeout(() => setSuccess(null), 3000);
         setEditingId(null);
@@ -190,56 +154,68 @@ export function AdminParametresTab() {
         </div>
       )}
 
-      {/* Statistiques des stages par filière */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Paramètres système */}
         <div className="bg-white rounded-lg shadow-sm p-4">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stageStats}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="count"
-                  label={({ filiere, count }) => `${filiere}: ${count}`}
-                >
-                  {stageStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+          <h3 className="text-base font-medium text-gray-700 mb-4">Paramètres d'affichage</h3>
+          
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-700">Mode sombre</span>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full ${darkMode ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-700">Activer les rappels</span>
+              <button
+                onClick={() => setReminders(!reminders)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full ${reminders ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${reminders ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
         </div>
         
+        {/* Résumé des statistiques */}
         <div className="bg-white rounded-lg shadow-sm p-4">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Stages trouvés vs requis par filière</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={stageStats}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <XAxis dataKey="filiere" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="stagesFound" name="Stages trouvés" fill="#3B82F6" />
-                <Bar dataKey="count" name="Étudiants total" fill="#60A5FA" />
-              </BarChart>
-            </ResponsiveContainer>
+          <h3 className="text-base font-medium text-gray-700 mb-4">Statistiques globales</h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3 bg-blue-50 rounded">
+              <p className="text-sm text-gray-500">Total des étudiants</p>
+              <p className="text-xl font-bold text-blue-700">
+                {parametres.reduce((sum, param) => sum + param.nb_etudiants, 0)}
+              </p>
+            </div>
+            <div className="p-3 bg-green-50 rounded">
+              <p className="text-sm text-gray-500">Total des stages requis</p>
+              <p className="text-xl font-bold text-green-700">
+                {parametres.reduce((sum, param) => sum + param.nb_stages_requis, 0)}
+              </p>
+            </div>
+            <div className="p-3 bg-purple-50 rounded">
+              <p className="text-sm text-gray-500">Taux moyen</p>
+              <p className="text-xl font-bold text-purple-700">
+                {parametres.length > 0 
+                  ? (parametres.reduce((sum, param) => sum + param.pourcentage_reussite, 0) / parametres.length).toFixed(2)
+                  : "0.00"}%
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Tableau des paramètres */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <h3 className="text-base font-medium text-gray-700">Configuration des filières</h3>
+        </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -331,28 +307,6 @@ export function AdminParametresTab() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Résumé des statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <h3 className="text-sm font-medium text-gray-500">Total des étudiants</h3>
-          <p className="text-2xl font-bold mt-1">
-            {parametres.reduce((sum, param) => sum + param.nb_etudiants, 0)}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <h3 className="text-sm font-medium text-gray-500">Total des stages requis</h3>
-          <p className="text-2xl font-bold mt-1">
-            {parametres.reduce((sum, param) => sum + param.nb_stages_requis, 0)}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <h3 className="text-sm font-medium text-gray-500">Pourcentage moyen de réussite</h3>
-          <p className="text-2xl font-bold mt-1">
-            {(parametres.reduce((sum, param) => sum + param.pourcentage_reussite, 0) / parametres.length).toFixed(2)}%
-          </p>
-        </div>
       </div>
     </div>
   );

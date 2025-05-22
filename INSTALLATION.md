@@ -103,3 +103,5 @@ mysql -u votre_utilisateur -p gestion_stages < sql/init_database.sql
   - `config/` : Configuration de l'application
 - `sql/` : Scripts SQL
 - `public/` : Fichiers statiques 
+
+

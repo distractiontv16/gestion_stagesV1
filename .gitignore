@@ -33,8 +33,23 @@ logs/
 # Testing
 coverage/
 
-# Additional files from context
+# Sensitive and script files
 api-tests.http
 generateHash.js
 requests.http
+*.http
+**/auth.js
+**/*.config.js
+**/*.credentials.json
+**/*.pem
+**/*.key
+**/*.cert
+
+# Database related
 sql/
+**/*.sql
+**/db.js
+
+# Temp files
+**/temp/
+**/tmp/

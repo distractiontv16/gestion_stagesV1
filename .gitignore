@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log
 yarn-debug.log
 yarn-error.log
-
 # Environment variables
 .env
 .env.local
@@ -32,4 +31,10 @@ logs/
 *.log
 
 # Testing
-coverage/ 
+coverage/
+
+# Additional files from context
+api-tests.http
+generateHash.js
+requests.http
+sql/

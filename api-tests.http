@@ -87,3 +87,7 @@ Authorization: Bearer {{token}}
 {
   "query": "SELECT * FROM activites_recentes LIMIT 5;"
 }
+
+
+
+api-tests.http   generateHash.js    requests.http  sql

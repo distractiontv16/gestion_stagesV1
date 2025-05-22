@@ -5,6 +5,7 @@ import './App.css';
 // Importation dynamique des pages
 const LoginPage = lazy(() => import('./pages/login'));
 const RegisterPage = lazy(() => import('./pages/register'));
+const AdminLoginPage = lazy(() => import('./pages/admin-login'));
 
 // Pages étudiants
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
@@ -27,6 +28,7 @@ function App() {
           {/* Routes publiques */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
           
           {/* Routes étudiants */}
           <Route path="/student/dashboard" element={<StudentDashboard />} />

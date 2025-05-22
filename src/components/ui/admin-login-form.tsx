@@ -1,25 +1,22 @@
-"use client";
-
 import { useState } from "react";
 import { SunIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-interface LoginFormData {
+interface AdminLoginFormData {
   matricule: string;
   password: string;
 }
 
-export const LoginForm = () => {
+export const AdminLoginForm = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<LoginFormData>({
+  const [formData, setFormData] = useState<AdminLoginFormData>({
     matricule: "",
     password: "",
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof AdminLoginFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -27,21 +24,19 @@ export const LoginForm = () => {
       ...formData,
       [name]: value,
     });
-    // Réinitialiser l'erreur d'authentification lorsque l'utilisateur modifie les champs
+    // Reset auth error when user modifies fields
     if (authError) setAuthError(null);
   };
 
   const validateForm = () => {
-    const newErrors: Partial<Record<keyof LoginFormData, string>> = {};
+    const newErrors: Partial<Record<keyof AdminLoginFormData, string>> = {};
     let valid = true;
 
-    // Validation matricule
     if (!formData.matricule.trim()) {
       newErrors.matricule = "Le matricule est requis";
       valid = false;
     }
 
-    // Validation mot de passe
     if (!formData.password) {
       newErrors.password = "Le mot de passe est requis";
       valid = false;
@@ -60,42 +55,29 @@ export const LoginForm = () => {
       setAuthError(null);
       
       try {
-        // Nettoyer le matricule des espaces et tabulations
         const cleanMatricule = formData.matricule.trim();
         
-        console.log('Tentative de connexion avec:', {
-          matricule: cleanMatricule,
-          password: formData.password
-        });
-        
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('/api/auth/admin/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            matricule: cleanMatricule, // Utiliser le matricule nettoyé
+            matricule: cleanMatricule,
             password: formData.password
           }),
         });
 
         const data = await response.json();
-        console.log('Réponse du serveur:', data);
 
         if (!response.ok) {
           throw new Error(data.message || 'Erreur lors de la connexion');
         }
 
-        // Stocker le token JWT dans le localStorage
+        // Store JWT token in localStorage
         if (data.token) {
           localStorage.setItem('token', data.token);
-          
-          // Redirection basée sur le rôle
-          if (data.user.role === 'admin') {
-            navigate('/admin/dashboard');
-          } else {
-            navigate('/student/dashboard');
-          }
+          navigate('/admin/dashboard');
         }
       } catch (error) {
         console.error('Erreur de connexion:', error);
@@ -109,10 +91,10 @@ export const LoginForm = () => {
   return (
     <div className="min-h-screen flex items-center justify-center overflow-hidden p-4">
       <div className="w-full max-w-md overflow-hidden rounded-xl shadow-xl">
-        <div className="bg-blue-600 text-white p-6">
+        <div className="bg-blue-800 text-white p-6">
           <div className="flex items-center gap-3">
             <SunIcon className="h-8 w-8" />
-            <h1 className="text-2xl font-semibold">Connexion</h1>
+            <h1 className="text-2xl font-semibold">Administration</h1>
           </div>
           <p className="mt-2 opacity-90">
             Plateforme de Gestion des Stages - ISI
@@ -141,7 +123,7 @@ export const LoginForm = () => {
                   errors.matricule ? "border-red-500" : "border-gray-300"
                 }`}
                 aria-invalid={!!errors.matricule}
-                placeholder="54036STI22"
+                placeholder="ADMIN001"
               />
               {errors.matricule && (
                 <p className="text-red-500 text-xs mt-1">{errors.matricule}</p>
@@ -169,27 +151,9 @@ export const LoginForm = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={() => setRememberMe(!rememberMe)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-600"
-                />
-                <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
-                  Se souvenir de moi
-                </label>
-              </div>
-              <a href="/forgot-password" className="text-sm text-blue-600 hover:underline">
-                Mot de passe oublié?
-              </a>
-            </div>
-
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors mt-3 flex items-center justify-center gap-2"
+              className="w-full bg-blue-800 hover:bg-blue-900 text-white font-medium py-2.5 px-4 rounded-lg transition-colors mt-3 flex items-center justify-center gap-2"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -200,15 +164,8 @@ export const LoginForm = () => {
             </button>
 
             <div className="text-center text-gray-600 text-sm mt-4">
-              Pas encore inscrit?{" "}
-              <a href="/register" className="text-blue-600 font-medium hover:underline">
-                Créez votre compte
-              </a>
-            </div>
-            
-            <div className="text-center text-gray-600 text-sm mt-2">
-              <a href="/admin/login" className="text-blue-600 font-medium hover:underline">
-                Accès administrateur
+              <a href="/login" className="text-blue-600 font-medium hover:underline">
+                Retour à la page de connexion étudiant
               </a>
             </div>
           </form>

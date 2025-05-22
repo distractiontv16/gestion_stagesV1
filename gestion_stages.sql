@@ -47,7 +47,25 @@ CREATE TABLE IF NOT EXISTS `entreprises` (
 --
 -- Structure de la table `evaluations`
 --
+-- Structure de la table administrateurs
+DROP TABLE IF EXISTS `administrateurs`;
+CREATE TABLE IF NOT EXISTS `administrateurs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `matricule` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mot_de_passe` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `matricule` (`matricule`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Insertion de l'administrateur par défaut (mot de passe: admin123)
+-- Hash généré par votre propre installation de bcrypt
+INSERT INTO `administrateurs` (`matricule`, `mot_de_passe`) VALUES
+('ADMIN001', '$2b$10$fx0dyOP.fFyza1rN9zcbgOPdHMfpmZ/Vu4.wyR3K5IOK/EeqfXkAm');
+
+
+s
 DROP TABLE IF EXISTS `evaluations`;
 CREATE TABLE IF NOT EXISTS `evaluations` (
   `id` int NOT NULL AUTO_INCREMENT,

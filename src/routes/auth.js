@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import dotenv from 'dotenv';
+import { protect } from '../middleware/auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -95,27 +96,31 @@ router.post('/register', [
 });
 
 // Login Endpoint
-router.post('/login', [
-  body('matricule').notEmpty().withMessage('Le matricule est requis').trim(),
-  body('password').notEmpty().withMessage('Le mot de passe est requis')
-], async (req, res) => {
-  // Check validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.log('Erreurs de validation:', errors.array());
-    return res.status(400).json({ 
-      success: false,
-      message: 'Validation échouée',
-      errors: errors.array() 
-    });
-  }
-
+router.post('/login', async (req, res) => {
   try {
-    const { matricule, password } = req.body;
-    // Nettoyer également le matricule côté serveur (double sécurité)
+    console.log('Body de la requête login:', req.body);
+    const { matricule, password, mot_de_passe } = req.body;
+    
+    // Vérifier qu'au moins un des deux champs est présent
+    if (!matricule) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Le matricule est requis' 
+      });
+    }
+
+    if (!password && !mot_de_passe) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Le mot de passe est requis' 
+      });
+    }
+
+    // Utiliser le mot de passe fourni (accepte les deux formats)
+    const passwordToCheck = password || mot_de_passe;
     const cleanMatricule = matricule.trim();
     
-    console.log('Tentative de connexion pour:', { matricule: cleanMatricule, password: '***' });
+    console.log('Tentative de connexion pour:', { matricule: cleanMatricule, passwordProvided: !!passwordToCheck });
 
     // Find user
     const [users] = await pool.query(
@@ -135,7 +140,7 @@ router.post('/login', [
     console.log('Utilisateur trouvé:', { id: user.id, matricule: user.matricule });
 
     // Check password
-    const isMatch = await bcrypt.compare(password, user.mot_de_passe);
+    const isMatch = await bcrypt.compare(passwordToCheck, user.mot_de_passe);
     console.log('Résultat de la comparaison de mot de passe:', isMatch);
     
     if (!isMatch) {
@@ -168,57 +173,207 @@ router.post('/login', [
     console.error('Login error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Erreur lors de la connexion' 
+      message: 'Erreur lors de la connexion',
+      error: error.message
     });
   }
 });
 
-// Get current user info
-router.get('/me', async (req, res) => {
+// Admin Login Endpoint
+router.post('/admin/login', async (req, res) => {
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non autorisé, token manquant'
+    console.log('Body de la requête admin login:', req.body);
+    const { matricule, password, mot_de_passe } = req.body;
+    
+    // Vérifier qu'au moins un des deux champs est présent
+    if (!matricule) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Le matricule est requis' 
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!password && !mot_de_passe) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Le mot de passe est requis' 
+      });
+    }
 
-    // Verify token
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+    // Utiliser le mot de passe fourni (accepte les deux formats)
+    const passwordToCheck = password || mot_de_passe;
+    const cleanMatricule = matricule.trim();
+    
+    console.log('Tentative de connexion admin pour:', { matricule: cleanMatricule, passwordProvided: !!passwordToCheck });
+
+    // Find admin
+    console.log('Recherche dans la table administrateurs...');
+    const [admins] = await pool.query(
+      'SELECT * FROM administrateurs WHERE matricule = ?', 
+      [cleanMatricule]
+    );
+
+    console.log('Résultat de la recherche admin:', { count: admins.length, found: admins.length > 0 });
+    
+    if (admins.length === 0) {
+      console.log('Admin non trouvé dans la table administrateurs avec matricule:', cleanMatricule);
       
-      // Get user info
+      // Essayer de trouver dans la table utilisateurs avec rôle admin
+      console.log('Recherche dans la table utilisateurs avec rôle admin...');
+      const [adminUsers] = await pool.query(
+        'SELECT * FROM utilisateurs WHERE matricule = ? AND role = "admin"', 
+        [cleanMatricule]
+      );
+      
+      console.log('Résultat de la recherche utilisateur admin:', { count: adminUsers.length, found: adminUsers.length > 0 });
+      
+      if (adminUsers.length === 0) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Matricule ou mot de passe incorrect' 
+        });
+      }
+      
+      // Utiliser l'admin de la table utilisateurs
+      const adminUser = adminUsers[0];
+      console.log('Admin trouvé dans la table utilisateurs:', { id: adminUser.id, matricule: adminUser.matricule });
+      
+      // Check password
+      const isMatch = await bcrypt.compare(passwordToCheck, adminUser.mot_de_passe);
+      console.log('Résultat de la comparaison de mot de passe admin utilisateur:', isMatch);
+      
+      if (!isMatch) {
+        console.log('Mot de passe incorrect pour admin utilisateur:', cleanMatricule);
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Matricule ou mot de passe incorrect' 
+        });
+      }
+      
+      // Generate JWT
+      const token = jwt.sign(
+        { id: adminUser.id, role: 'admin', matricule: adminUser.matricule },
+        JWT_SECRET,
+        { expiresIn: '12h' }
+      );
+      
+      console.log('Connexion admin réussie depuis table utilisateurs pour:', cleanMatricule);
+      return res.status(200).json({
+        success: true,
+        message: 'Connexion réussie',
+        token,
+        user: { 
+          id: adminUser.id,
+          nom: adminUser.nom,
+          prenom: adminUser.prenom,
+          email: adminUser.email,
+          matricule: adminUser.matricule,
+          role: 'admin'
+        }
+      });
+    }
+
+    const admin = admins[0];
+    console.log('Admin trouvé dans table administrateurs:', { id: admin.id, matricule: admin.matricule });
+
+    // Check password
+    const isMatch = await bcrypt.compare(passwordToCheck, admin.mot_de_passe);
+    console.log('Résultat de la comparaison de mot de passe admin:', isMatch);
+    
+    if (!isMatch) {
+      console.log('Mot de passe incorrect pour admin:', cleanMatricule);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Matricule ou mot de passe incorrect' 
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: admin.id, role: 'admin', matricule: admin.matricule },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    console.log('Connexion admin réussie pour:', cleanMatricule);
+    res.status(200).json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: { role: 'admin', matricule: admin.matricule }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la connexion',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint pour récupérer les informations de l'utilisateur connecté
+router.get('/me', protect, async (req, res) => {
+  try {
+    console.log('Récupération des informations utilisateur:', req.user);
+
+    // Pour les admins, chercher d'abord dans la table administrateurs
+    if (req.user.role === 'admin') {
+      console.log('Admin détecté, recherche dans la table administrateurs avec matricule:', req.user.matricule);
+      const [admins] = await pool.query(
+        'SELECT id, matricule FROM administrateurs WHERE matricule = ?', 
+        [req.user.matricule]
+      );
+      
+      if (admins.length > 0) {
+        console.log('Admin trouvé dans la table administrateurs:', admins[0]);
+        return res.status(200).json({
+          success: true,
+          data: {
+            id: admins[0].id,
+            matricule: admins[0].matricule,
+            role: 'admin'
+          }
+        });
+      } else {
+        console.log('Admin non trouvé dans la table administrateurs, recherche dans utilisateurs');
+      }
+    }
+
+    // Pour tous les autres utilisateurs ou admins non trouvés dans administrateurs
+    if (req.user.id) {
+      console.log('Recherche utilisateur avec ID:', req.user.id);
       const [users] = await pool.query(
-        'SELECT id, nom, prenom, telephone, email, matricule, filiere_id, role, whatsapp FROM utilisateurs WHERE id = ?',
-        [decoded.id]
+        'SELECT id, nom, prenom, email, matricule, telephone, filiere_id, role FROM utilisateurs WHERE id = ?',
+        [req.user.id]
       );
 
       if (users.length === 0) {
+        console.log('Aucun utilisateur trouvé avec ID:', req.user.id);
         return res.status(404).json({
           success: false,
           message: 'Utilisateur non trouvé'
         });
       }
 
-      res.status(200).json({
+      console.log('Utilisateur trouvé dans la table utilisateurs:', users[0]);
+      return res.status(200).json({
         success: true,
         data: users[0]
       });
-    } catch (error) {
-      return res.status(401).json({
+    } else {
+      console.log('Aucun ID utilisateur dans le token et non trouvé comme admin');
+      return res.status(404).json({
         success: false,
-        message: 'Non autorisé, token invalide'
+        message: 'Informations utilisateur incomplètes'
       });
     }
   } catch (error) {
-    console.error('Get user info error:', error);
+    console.error('Erreur lors de la récupération des informations utilisateur:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: 'Erreur lors de la récupération des informations utilisateur',
+      error: error.message
     });
   }
 });

@@ -45,6 +45,10 @@ const setupRoutes = async () => {
     const internshipsRoutes = await import('./src/routes/internships.js');
     app.use('/api/internships', internshipsRoutes.default);
     
+    // Routes for admin
+    const adminRoutes = await import('./src/routes/admin.js');
+    app.use('/api/admin', adminRoutes.default);
+    
     // Import the auth middleware
     const authMiddleware = await import('./src/middleware/auth.js');
     

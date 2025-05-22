@@ -1,0 +1,89 @@
+### Variables globales
+@baseUrl = http://localhost:3000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6ImFkbWluIiwibWF0cmljdWxlIjoiQURNSU4wMDEiLCJpYXQiOjE3NDc4NjQ3NjIsImV4cCI6MTc0NzkwNzk2Mn0.SEBjnP_9dyKtgTYN9gQQhy5Jbo8ghEKDWZBcOl5kIxY
+
+### Test de connexion admin - ROUTE SPÉCIALE ADMIN
+POST {{baseUrl}}/api/auth/admin/login
+Content-Type: application/json
+
+{
+  "matricule": "ADMIN001",
+  "password": "admin123"
+}
+
+
+### Vérification des informations de l'utilisateur connecté
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Test des statistiques générales
+GET {{baseUrl}}/api/admin/statistiques
+Authorization: Bearer {{token}}
+
+### Test des statistiques par entreprise
+GET {{baseUrl}}/api/admin/statistiques/entreprise
+Authorization: Bearer {{token}}
+
+### Test des activités récentes
+GET {{baseUrl}}/api/admin/activites
+Authorization: Bearer {{token}}
+
+### Vérification de la vue SQL
+GET {{baseUrl}}/api/admin/statistiques/filiere
+Authorization: Bearer {{token}}
+
+### Requêtes pour debugger la structure des tables
+
+### Lister les tables disponibles
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "SHOW TABLES;"
+}
+
+### Afficher la structure de la table utilisateurs
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "DESCRIBE utilisateurs;"
+}
+
+### Afficher la structure de la table administrateurs
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "DESCRIBE administrateurs;"
+}
+
+### Vérifier que la vue SQL existe
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "SHOW CREATE VIEW vue_stages_par_entreprise;"
+}
+
+### Vérifier la jointure utilisateurs-filières
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "SELECT u.id, u.nom, u.prenom, f.nom as filiere FROM utilisateurs u JOIN filieres f ON u.filiere_id = f.id LIMIT 5;"
+}
+
+### Vérifier les données dans activites_recentes
+POST {{baseUrl}}/api/admin/debug
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "SELECT * FROM activites_recentes LIMIT 5;"
+}

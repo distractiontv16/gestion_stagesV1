@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, ResponsiveContainer, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { UsersIcon, ClipboardListIcon, BellIcon, SearchIcon, BriefcaseIcon } from 'lucide-react';
+import { UsersIcon, ClipboardListIcon, BellIcon, SearchIcon, BriefcaseIcon, BookOpenIcon, SettingsIcon } from 'lucide-react';
+import { AdminProjetsTab } from '@/components/ui/admin-projets-tab';
+import { AdminDashboardOverview } from '@/components/ui/admin-dashboard-overview';
+import { AdminStudentsTab } from '@/components/ui/admin-students-tab';
+import { AdminParametresTab } from '@/components/ui/admin-parametres-tab';
 
 // Interface pour les informations d'utilisateur
 interface UserInfo {
@@ -121,20 +125,30 @@ const AdminDashboard = () => {
           return;
         }
         
-        const response = await fetch('http://localhost:3000/api/auth/me', {
+        console.log('Token récupéré:', token.substring(0, 20) + '...');
+        
+        // Utiliser l'URL relative pour profiter du proxy configuré dans vite.config.js
+        let apiUrl = 'http://localhost:3000/api/auth/me';
+        console.log('Tentative avec URL:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
+        
+        console.log('Réponse API /auth/me - Status:', response.status);
         
         if (!response.ok) {
           throw new Error('Échec de récupération des informations utilisateur');
         }
         
         const data = await response.json();
+        console.log('Structure de la réponse API /auth/me:', JSON.stringify(data, null, 2));
         
         if (data.success && data.data) {
           // Vérifier si l'utilisateur est bien un administrateur
+          console.log('Rôle détecté:', data.data.role);
           if (data.data.role !== 'admin') {
             navigate('/student/dashboard');
             return;
@@ -150,6 +164,7 @@ const AdminDashboard = () => {
             role: data.data.role
           });
         } else {
+          console.error('Données invalides reçues:', data);
           setError('Impossible de charger les informations administrateur');
         }
       } catch (err) {
@@ -282,6 +297,24 @@ const AdminDashboard = () => {
             </li>
             <li>
               <button 
+                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${activeTab === 'projets' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+                onClick={() => setActiveTab('projets')}
+              >
+                <BookOpenIcon className="w-5 h-5" />
+                <span>Projets</span>
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${activeTab === 'parametres' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+                onClick={() => setActiveTab('parametres')}
+              >
+                <SettingsIcon className="w-5 h-5" />
+                <span>Paramètres</span>
+              </button>
+            </li>
+            <li>
+              <button 
                 className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${activeTab === 'notifications' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
                 onClick={() => setActiveTab('notifications')}
               >
@@ -303,6 +336,8 @@ const AdminDashboard = () => {
               {activeTab === 'students' && 'Gestion des Étudiants'}
               {activeTab === 'evaluations' && 'Évaluations'}
               {activeTab === 'proposals' && 'Propositions de Stages'}
+              {activeTab === 'projets' && 'Gestion des Projets'}
+              {activeTab === 'parametres' && 'Paramètres du système'}
               {activeTab === 'notifications' && 'Notifications'}
             </h1>
             <div className="flex items-center gap-3">
@@ -320,347 +355,126 @@ const AdminDashboard = () => {
         {/* Contenu de page */}
         <main className="flex-1 overflow-y-auto p-4">
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Cartes de statistiques */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Étudiants</h3>
-                  <p className="text-2xl font-bold mt-1">72</p>
-                  <p className="text-xs text-green-500 mt-2">+5% cette semaine</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Stages en cours</h3>
-                  <p className="text-2xl font-bold mt-1">54</p>
-                  <p className="text-xs text-yellow-500 mt-2">75% des étudiants</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Stages terminés</h3>
-                  <p className="text-2xl font-bold mt-1">12</p>
-                  <p className="text-xs text-green-500 mt-2">17% des étudiants</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Stages abandonnés</h3>
-                  <p className="text-2xl font-bold mt-1">6</p>
-                  <p className="text-xs text-red-500 mt-2">8% des étudiants</p>
-                </div>
-              </div>
-
-              {/* Graphiques */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-4">Répartition par filière</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={stageStats}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="count"
-                          label={({ filiere, count }) => `${filiere}: ${count}`}
-                        >
-                          {stageStats.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-4">Stages par entreprise</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={stageByEntrepriseData}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <XAxis dataKey="entreprise" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="count" name="Nombre d'étudiants" fill="#3B82F6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AdminDashboardOverview />
           )}
 
           {activeTab === 'students' && (
-            <div className="space-y-4">
-              {/* Barre de recherche et filtres */}
-              <div className="bg-white rounded-lg shadow-sm p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <SearchIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Rechercher un étudiant..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="w-full md:w-48">
-                    <select
-                      className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                      value={filterFiliere}
-                      onChange={(e) => setFilterFiliere(e.target.value)}
-                    >
-                      <option value="">Toutes les filières</option>
-                      <option value="GEI/EE">GEI/EE</option>
-                      <option value="GEI/IT">GEI/IT</option>
-                      <option value="GE/ER">GE/ER</option>
-                      <option value="GMP">GMP</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Liste des étudiants */}
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Étudiant
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Matricule
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Filière
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Entreprise
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Statut
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredStudents.map((student) => (
-                      <tr key={student.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {student.prenom} {student.nom}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.matricule}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.filiere}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.entreprise}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              student.statut === 'en_cours'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : student.statut === 'termine'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {student.statut === 'en_cours'
-                              ? 'En cours'
-                              : student.statut === 'termine'
-                              ? 'Terminé'
-                              : 'Abandonné'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button className="text-blue-600 hover:text-blue-900 mr-2">
-                            Voir
-                          </button>
-                          <button className="text-blue-600 hover:text-blue-900">
-                            Évaluer
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <AdminStudentsTab />
           )}
 
           {activeTab === 'evaluations' && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Gestion des Évaluations</h2>
-              <p className="text-gray-600 mb-6">
-                Cette section vous permet d'évaluer les stages des étudiants et d'ajouter des observations.
-              </p>
-              
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <p className="text-center text-gray-500">
-                  Sélectionnez un étudiant dans la section "Étudiants" pour l'évaluer.
-                </p>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-800">Évaluations</h2>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p>Module d'évaluation des stages - En cours de développement</p>
               </div>
             </div>
+          )}
+          
+          {activeTab === 'parametres' && (
+            <AdminParametresTab />
           )}
 
           {activeTab === 'proposals' && (
             <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-800">Propositions de Stages</h2>
+              
+              {/* Formulaire d'ajout de proposition */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Ajouter une proposition de stage</h2>
+                <h3 className="text-lg font-medium mb-4">Ajouter une proposition</h3>
                 <form onSubmit={handleProposalSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
-                        Entreprise
-                      </label>
+                      <label htmlFor="company" className="block text-sm font-medium text-gray-700">Entreprise</label>
                       <input
                         type="text"
                         id="company"
                         name="company"
                         value={newProposal.company}
                         onChange={handleProposalChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
-                    
                     <div>
-                      <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-1">
-                        Poste
-                      </label>
+                      <label htmlFor="position" className="block text-sm font-medium text-gray-700">Poste</label>
                       <input
                         type="text"
                         id="position"
                         name="position"
                         value={newProposal.position}
                         onChange={handleProposalChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                        Lieu
-                      </label>
+                      <label htmlFor="location" className="block text-sm font-medium text-gray-700">Lieu</label>
                       <input
                         type="text"
                         id="location"
                         name="location"
                         value={newProposal.location}
                         onChange={handleProposalChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
-                    
                     <div>
-                      <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                        Durée
-                      </label>
+                      <label htmlFor="duration" className="block text-sm font-medium text-gray-700">Durée</label>
                       <input
                         type="text"
                         id="duration"
                         name="duration"
                         value={newProposal.duration}
                         onChange={handleProposalChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="Ex: 6 mois"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
-                    
                     <div>
-                      <label htmlFor="filiere" className="block text-sm font-medium text-gray-700 mb-1">
-                        Filière cible
-                      </label>
+                      <label htmlFor="requirements" className="block text-sm font-medium text-gray-700">Compétences requises</label>
+                      <input
+                        type="text"
+                        id="requirements"
+                        name="requirements"
+                        value={newProposal.requirements}
+                        onChange={handleProposalChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="filiere" className="block text-sm font-medium text-gray-700">Filière cible</label>
                       <select
                         id="filiere"
                         name="filiere"
                         value={newProposal.filiere}
                         onChange={handleProposalChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       >
-                        <option value="">Sélectionnez une filière</option>
-                        <option value="GEI/IT">GEI/IT</option>
+                        <option value="">Sélectionner une filière</option>
                         <option value="GEI/EE">GEI/EE</option>
+                        <option value="GEI/IT">GEI/IT</option>
                         <option value="GE/ER">GE/ER</option>
                         <option value="GMP">GMP</option>
                       </select>
                     </div>
                   </div>
-                  
                   <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
                     <textarea
                       id="description"
                       name="description"
-                      rows={3}
                       value={newProposal.description}
                       onChange={handleProposalChange}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      rows={3}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       required
-                    />
+                    ></textarea>
                   </div>
-                  
-                  <div>
-                    <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">
-                      Compétences requises
-                    </label>
-                    <input
-                      type="text"
-                      id="requirements"
-                      name="requirements"
-                      value={newProposal.requirements}
-                      onChange={handleProposalChange}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Ex: React, Node.js, MongoDB"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
+                  <div className="flex justify-end">
                     <button
                       type="submit"
                       className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -671,111 +485,115 @@ const AdminDashboard = () => {
                 </form>
               </div>
               
-              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div className="p-4 border-b">
-                  <h2 className="text-lg font-medium text-gray-900">Liste des propositions de stage</h2>
+              {/* Liste des propositions existantes */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Propositions existantes</h3>
                 </div>
-                <div className="p-4">
-                  {internshipProposals.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">Aucune proposition de stage n'a été ajoutée.</p>
-                  ) : (
-                    <div className="space-y-4">
+                <ul className="divide-y divide-gray-200">
                       {internshipProposals.map(proposal => (
-                        <div key={proposal.id} className="border rounded-lg p-4">
+                    <li key={proposal.id} className="p-4">
                           <div className="flex justify-between">
                             <div>
-                              <h3 className="font-bold text-lg">{proposal.position}</h3>
-                              <p className="text-blue-600 font-medium">{proposal.company}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-sm text-gray-600">{proposal.location}</span>
-                                <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                                <span className="text-sm text-gray-600">{proposal.duration}</span>
-                                <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                                <span className="text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{proposal.filiere}</span>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => handleDeleteProposal(proposal.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                          <h4 className="font-bold">{proposal.position}</h4>
+                          <p className="text-blue-600">{proposal.company}</p>
+                          <p className="text-sm text-gray-600">{proposal.location} • {proposal.duration}</p>
+                          <p className="mt-1">{proposal.description}</p>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium">Compétences:</span>
+                            <span className="text-sm text-gray-600 ml-1">{proposal.requirements}</span>
                           </div>
-                          <p className="mt-2 text-gray-700">{proposal.description}</p>
-                          <div className="mt-2">
-                            <span className="text-sm font-medium text-gray-700">Compétences requises:</span>
-                            <p className="text-sm text-gray-600">{proposal.requirements}</p>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium">Filière cible:</span>
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 ml-1">{proposal.filiere}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Voulez-vous vraiment supprimer cette proposition?')) {
+                              // Simulation de suppression
+                              alert(`Proposition ${proposal.id} supprimée`);
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
 
+          {activeTab === 'projets' && <AdminProjetsTab />}
+
           {activeTab === 'notifications' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Gestion des Notifications</h2>
-              <p className="text-gray-600 mb-4">
-                Envoyez des notifications aux étudiants concernant leurs stages.
-              </p>
-              
+                <h3 className="text-lg font-medium mb-4">Envoyer une notification</h3>
               <form className="space-y-4">
                 <div>
-                  <label htmlFor="notification-type" className="block text-sm font-medium text-gray-700 mb-1">
-                    Type de notification
-                  </label>
+                    <label htmlFor="recipient" className="block text-sm font-medium text-gray-700">Destinataire</label>
                   <select
-                    id="notification-type"
-                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option>Rappel</option>
-                    <option>Information</option>
-                    <option>Urgence</option>
+                      id="recipient"
+                      name="recipient"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="all">Tous les étudiants</option>
+                      <option value="GEI/EE">Filière GEI/EE</option>
+                      <option value="GEI/IT">Filière GEI/IT</option>
+                      <option value="GE/ER">Filière GE/ER</option>
+                      <option value="GMP">Filière GMP</option>
                   </select>
                 </div>
-                
+                  <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">Titre</label>
+                    <input
+                      type="text"
+                      id="title"
+                      name="title"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Titre de la notification"
+                    />
+                  </div>
                 <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-                    Message
-                  </label>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-700">Message</label>
                   <textarea
                     id="message"
+                      name="message"
                     rows={4}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Saisissez votre message..."
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Contenu de la notification"
                   ></textarea>
                 </div>
-                
-                <div>
-                  <label htmlFor="recipients" className="block text-sm font-medium text-gray-700 mb-1">
-                    Destinataires
-                  </label>
-                  <select
-                    id="recipients"
-                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option>Tous les étudiants</option>
-                    <option>GEI/EE</option>
-                    <option>GEI/IT</option>
-                    <option>GE/ER</option>
-                    <option>GMP</option>
-                  </select>
-                </div>
-                
-                <div>
+                  <div className="flex justify-end">
                   <button
                     type="submit"
                     className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
-                    Envoyer la notification
+                      Envoyer
                   </button>
                 </div>
               </form>
+              </div>
+              
+              {/* Historique des notifications */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-medium mb-4">Historique des notifications</h3>
+                <div className="space-y-3">
+                  <div className="border-l-4 border-blue-500 pl-4 py-2">
+                    <p className="font-medium">Rappel des dossiers de fin de stage</p>
+                    <p className="text-sm text-gray-600">Envoyé à tous les étudiants - Il y a 2 jours</p>
+                  </div>
+                  <div className="border-l-4 border-green-500 pl-4 py-2">
+                    <p className="font-medium">Nouvelle offre de stage disponible</p>
+                    <p className="text-sm text-gray-600">Envoyé à la filière GEI/IT - Il y a 1 semaine</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>

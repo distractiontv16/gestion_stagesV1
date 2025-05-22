@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StageForm } from '@/components/ui/stage-form';
+import { ProjetsTab } from '@/components/ui/projets-tab';
 
 // Liste des filières pour mappage ID -> nom
 const filieres = [
@@ -342,6 +343,16 @@ const StudentDashboard = () => {
               </button>
               <button
                 className={`px-6 py-3 text-sm font-medium whitespace-nowrap ${
+                  activeTab === 'projets'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600'
+                }`}
+                onClick={() => setActiveTab('projets')}
+              >
+                Projets
+              </button>
+              <button
+                className={`px-6 py-3 text-sm font-medium whitespace-nowrap ${
                   activeTab === 'notifications'
                     ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'text-gray-600 hover:text-blue-600'
@@ -655,6 +666,10 @@ const StudentDashboard = () => {
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeTab === 'projets' && (
+                <ProjetsTab />
               )}
 
               {activeTab === 'notifications' && (

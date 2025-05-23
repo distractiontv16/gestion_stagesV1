@@ -107,93 +107,88 @@ router.post('/submit', protect, [
 
     try {
       // 1. Vérifier si l'entreprise existe déjà
-      let [existingEnterprise] = await client.query(
-        'SELECT id FROM entreprises WHERE nom = $3 AND departement = $4 AND commune = $5 AND quartier = $6',
+      const { rows: existingEnterpriseRows } = await client.query(
+        'SELECT id FROM entreprises WHERE nom = $1 AND departement = $2 AND commune = $3 AND quartier = $4',
         [nomEntreprise, departement, commune, quartier]
       );
 
       let entrepriseId;
       
       // Si l'entreprise n'existe pas, l'ajouter
-      if (existingEnterprise.length === 0) {
-        const [newEnterprise] = await client.query(
-          'INSERT INTO entreprises (nom, departement, commune, quartier) VALUES ($7, $8, $9, $10)',
+      if (existingEnterpriseRows.length === 0) {
+        const { rows: newEnterpriseRows } = await client.query(
+          'INSERT INTO entreprises (nom, departement, commune, quartier) VALUES ($1, $2, $3, $4) RETURNING id',
           [nomEntreprise, departement, commune, quartier]
         );
-        entrepriseId = newEnterprise.rows[0].id;
+        entrepriseId = newEnterpriseRows[0].id;
       } else {
-        entrepriseId = existingEnterprise[0].id;
+        entrepriseId = existingEnterpriseRows[0].id;
       }
 
       // 2. Vérifier si le maître de stage existe déjà
-      let [existingMaitreStage] = await client.query(
-        'SELECT id FROM maitres_stage WHERE nom = $11 AND prenom = $12 AND email = $13',
+      let { rows: existingMaitreStageRows } = await client.query(
+        'SELECT id FROM maitres_stage WHERE nom = $1 AND prenom = $2 AND email = $3',
         [nomMaitreStage, prenomMaitreStage, emailMaitreStage]
       );
 
       let maitreStageId;
       
-      // Si le maître de stage n'existe pas, l'ajouter
-      if (existingMaitreStage.length === 0) {
-        const [newMaitreStage] = await client.query(
-          'INSERT INTO maitres_stage (nom, prenom, telephone, email, fonction, entreprise_id) VALUES ($14, $15, $16, $17, $18, $19)',
+      if (existingMaitreStageRows.length === 0) {
+        const { rows: newMaitreStageRows } = await client.query(
+          'INSERT INTO maitres_stage (nom, prenom, telephone, email, fonction, entreprise_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
           [nomMaitreStage, prenomMaitreStage, telephoneMaitreStage, emailMaitreStage, fonctionMaitreStage, entrepriseId]
         );
-        maitreStageId = newMaitreStage.rows[0].id;
+        maitreStageId = newMaitreStageRows[0].id;
       } else {
-        maitreStageId = existingMaitreStage[0].id;
-        // Mettre à jour les informations du maître de stage
+        maitreStageId = existingMaitreStageRows[0].id;
         await client.query(
-          'UPDATE maitres_stage SET telephone = $20, fonction = $21, entreprise_id = $22 WHERE id = $23',
+          'UPDATE maitres_stage SET telephone = $1, fonction = $2, entreprise_id = $3 WHERE id = $4',
           [telephoneMaitreStage, fonctionMaitreStage, entrepriseId, maitreStageId]
         );
       }
 
       // 3. Vérifier si le maître de mémoire existe déjà
-      let [existingMaitreMemoire] = await client.query(
-        'SELECT id FROM maitres_memoire WHERE nom = $24 AND email = $25',
+      let { rows: existingMaitreMemoireRows } = await client.query(
+        'SELECT id FROM maitres_memoire WHERE nom = $1 AND email = $2',
         [nomMaitreMemoire, emailMaitreMemoire]
       );
 
       let maitreMemoireId;
       
-      // Si le maître de mémoire n'existe pas, l'ajouter
-      if (existingMaitreMemoire.length === 0) {
-        const [newMaitreMemoire] = await client.query(
-          'INSERT INTO maitres_memoire (nom, telephone, email, statut) VALUES ($26, $27, $28, $29)',
+      if (existingMaitreMemoireRows.length === 0) {
+        const { rows: newMaitreMemoireRows } = await client.query(
+          'INSERT INTO maitres_memoire (nom, telephone, email, statut) VALUES ($1, $2, $3, $4) RETURNING id',
           [nomMaitreMemoire, telephoneMaitreMemoire, emailMaitreMemoire, statutMaitreMemoire]
         );
-        maitreMemoireId = newMaitreMemoire.rows[0].id;
+        maitreMemoireId = newMaitreMemoireRows[0].id;
       } else {
-        maitreMemoireId = existingMaitreMemoire[0].id;
-        // Mettre à jour les informations du maître de mémoire
+        maitreMemoireId = existingMaitreMemoireRows[0].id;
         await client.query(
-          'UPDATE maitres_memoire SET telephone = $30, statut = $31 WHERE id = $32',
+          'UPDATE maitres_memoire SET telephone = $1, statut = $2 WHERE id = $3',
           [telephoneMaitreMemoire, statutMaitreMemoire, maitreMemoireId]
         );
       }
 
       // 4. Vérifier si un stage existe déjà pour cet étudiant
-      const [existingStage] = await client.query(
-        'SELECT id FROM stages WHERE etudiant_id = $33',
+      const { rows: existingStageRows } = await client.query(
+        'SELECT id FROM stages WHERE etudiant_id = $1',
         [req.user.id]
       );
 
-      let stageId;
+      // let stageId; // Supprimé car non utilisé
       
       // Si le stage n'existe pas, l'ajouter
-      if (existingStage.length === 0) {
-        const [newStage] = await client.query(
-          'INSERT INTO stages (etudiant_id, entreprise_id, maitre_stage_id, maitre_memoire_id, date_debut, date_fin, theme_memoire) VALUES ($34, $35, $36, $37, $38, $39, $40)',
+      if (existingStageRows.length === 0) {
+        await client.query( // newStageRows n'est pas utilisé, donc on ne le stocke pas
+          'INSERT INTO stages (etudiant_id, entreprise_id, maitre_stage_id, maitre_memoire_id, date_debut, date_fin, theme_memoire) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
           [req.user.id, entrepriseId, maitreStageId, maitreMemoireId, dateDebutStage, dateFinStage || null, themeMemoire]
         );
-        stageId = newStage.rows[0].id;
+        // stageId = newStageRows[0].id; // Supprimé
       } else {
-        stageId = existingStage[0].id;
-        // Mettre à jour les informations du stage
+        const stageToUpdateId = existingStageRows[0].id;
         await client.query(
-          'UPDATE stages SET entreprise_id = $41, maitre_stage_id = $42, maitre_memoire_id = $43, date_debut = $44, date_fin = $45, theme_memoire = $46 WHERE id = $47',
-          [entrepriseId, maitreStageId, maitreMemoireId, dateDebutStage, dateFinStage || null, themeMemoire, stageId]
+          'UPDATE stages SET entreprise_id = $1, maitre_stage_id = $2, maitre_memoire_id = $3, date_debut = $4, date_fin = $5, theme_memoire = $6 WHERE id = $7',
+          [entrepriseId, maitreStageId, maitreMemoireId, dateDebutStage, dateFinStage || null, themeMemoire, stageToUpdateId]
         );
       }
 

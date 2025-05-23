@@ -121,7 +121,7 @@ export const createNotification = async (req, res) => {
 
     // Utilisation d'une transaction pour insérer toutes les notifications
     // Cela garantit que soit toutes les notifications sont créées, soit aucune ne l'est.
-    const client = await db.getClient(); // Obtenir un client du pool
+    const client = await db.pool.connect(); // Obtenir un client du pool
     try {
       await client.query('BEGIN');
       debug('Transaction commencée');

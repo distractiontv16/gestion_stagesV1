@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SearchBar } from './search-bar';
 import { AdminProjetsForm } from './admin-projets-form';
 
-// Supprimer l'import des données fictives
+
 
 // Définition locale de Filiere (si non exportée de @/types)
 interface Filiere {

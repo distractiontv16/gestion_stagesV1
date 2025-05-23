@@ -16,11 +16,12 @@ interface EntrepriseStats {
 
 interface Activite {
   id: number;
-  type: string;
+  type_activite: string;
   description: string;
-  date_creation: string;
-  nom: string | null;
-  prenom: string | null;
+  valeur?: number;
+  date_activite: string;
+  created_at?: string;
+  user_id?: number | null;
 }
 
 interface FiliereStats {
@@ -124,7 +125,7 @@ export function AdminDashboardOverview() {
           const stats = data.data.map((param: any, index: number) => ({
             filiere: param.filiere_nom,
             count: parseInt(param.nb_etudiants),
-            stagesFound: Math.round(parseInt(param.nb_etudiants) * (parseFloat(param.pourcentage_reussite) / 100)),
+            stagesFound: param.nb_stages_trouves || 0,
             color: colors[index % colors.length]
           }));
           setFiliereStats(stats);
@@ -211,7 +212,16 @@ export function AdminDashboardOverview() {
         if (data.success) {
           if (data.data && data.data.length > 0) {
             addDebugLog(`${data.data.length} activités trouvées`);
-            setActivitesRecentes(data.data);
+            // S'assurer que les données correspondent à l'interface Activite
+            const formattedActivites = data.data.map((act: any) => ({
+              id: act.id,
+              type_activite: act.type_activite,
+              description: act.description,
+              valeur: act.valeur,
+              date_activite: act.date_activite || act.created_at,
+              user_id: act.user_id
+            }));
+            setActivitesRecentes(formattedActivites);
           } else {
             addDebugLog('Aucune activité récente trouvée');
           }
@@ -255,180 +265,112 @@ export function AdminDashboardOverview() {
   // Afficher un message d'erreur si nécessaire
   if (error) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-        <strong className="font-bold">Erreur:</strong>
-        <span className="block sm:inline"> {error}</span>
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+        <strong className="font-bold">Erreur: </strong>
+        <span className="block sm:inline">{error}</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Première rangée: statistiques principales - 2 colonnes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Statistiques des étudiants par filière */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière</h3>
-          <div className="h-64">
-            {stageStats && stageStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stageStats}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="count"
-                    nameKey="filiere"
-                    label={({ filiere, count }) => `${filiere}: ${count}`}
-                    labelLine={false}
-                    isAnimationActive={true}
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  >
+      {/* Grille principale pour les 4 graphiques en 2x2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Graphique 1: Étudiants avec un stage par filière */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Étudiants avec un stage par filière</h3>
+          {stageStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stageStats} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <XAxis dataKey="filiere" stroke="#4B5563" fontSize={12} />
+                <YAxis stroke="#4B5563" fontSize={12} />
+                <Tooltip wrapperStyle={{ fontSize: '14px' }} formatter={(value: number) => [value, 'Étudiants']} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="count" name="Étudiants avec stage">
                     {stageStats.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [`${value} étudiants`, 'Nombre']} />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                </PieChart>
+                </Bar>
+              </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                Aucune donnée disponible pour les filières
-              </div>
+            <p className="text-gray-500 text-sm">Chargement des données ou aucune donnée disponible.</p>
             )}
           </div>
+
+        {/* Graphique 2: Nombres d'étudiants par filière */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Nombres d'étudiants par filière</h3>
+          {filiereStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={filiereStats} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <XAxis dataKey="filiere" stroke="#4B5563" fontSize={12} />
+                <YAxis stroke="#4B5563" fontSize={12} />
+                <Tooltip wrapperStyle={{ fontSize: '14px' }} formatter={(value: number, name: string) => {
+                  if (name === 'Total Étudiants') return [value, 'Total Étudiants'];
+                  return [value, name];
+                }} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="count" name="Total Étudiants">
+                  {filiereStats.map((entry, index) => (
+                    <Cell key={`cell-filiere-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-sm">Chargement des données ou aucune donnée disponible.</p>
+          )}
         </div>
 
-        {/* Statistiques des stages par entreprise */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Stages par entreprise</h3>
-          <div className="h-64">
-            {entrepriseStats && entrepriseStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+        {/* Graphique 3: Stages par entreprise */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Stages par entreprise</h3>
+          {entrepriseStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={entrepriseStats}
                   layout="vertical"
-                  margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-                >
-                  <XAxis type="number" domain={[0, 'dataMax + 1']} />
-                  <YAxis dataKey="entreprise" type="category" width={110} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [`${value} stages`, 'Nombre']} />
-                  <Bar 
-                    dataKey="nb_stages" 
-                    name="Nombre de stages" 
-                    fill="#3B82F6" 
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={true}
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  />
+                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              >
+                <XAxis type="number" stroke="#4B5563" fontSize={12} />
+                <YAxis dataKey="entreprise" type="category" stroke="#4B5563" fontSize={12} width={90} interval={0} />
+                <Tooltip wrapperStyle={{ fontSize: '14px' }} formatter={(value: number) => [value, 'Stages']} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="nb_stages" name="Nombre de stages">
+                  {entrepriseStats.map((entry, index) => (
+                    <Cell key={`cell-ent-${index}`} fill={colors[index % colors.length]} />
+                  ))}
+                </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                Aucune donnée disponible pour les entreprises
-              </div>
+            <p className="text-gray-500 text-sm">Chargement des données ou aucune donnée disponible.</p>
             )}
-          </div>
+      </div>
+      
+        {/* Graphique 4: Stages trouvés vs étudiants par filière */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Stages trouvés vs étudiants par filière</h3>
+          {filiereStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={filiereStats} margin={{ top: 5, right: 20, left: 10, bottom: 20 }}>
+                <XAxis dataKey="filiere" angle={-30} textAnchor="end" height={50} stroke="#4B5563" fontSize={10} interval={0}/>
+                <YAxis stroke="#4B5563" fontSize={12} />
+                <Tooltip wrapperStyle={{ fontSize: '14px' }} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} verticalAlign="top" />
+                {/* <Bar dataKey="stagesFound" name="Stages trouvés" fill="#3B82F6" /> // Commenté temporairement ou à ajuster si nb_stages_trouves est fourni par l'API */}
+                <Bar dataKey="count" name="Étudiants total" fill="#A5B4FC" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-sm">Chargement des données ou aucune donnée disponible.</p>
+          )}
         </div>
       </div>
       
-      {/* Deuxième rangée: graphiques des filières */}
-      {filiereStats.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Graphique des étudiants par filière */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-4">Étudiants par filière (détaillé)</h3>
-            <div className="h-64">
-              {filiereStats && filiereStats.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={filiereStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="count"
-                      nameKey="filiere"
-                      label={({ filiere, count }) => `${filiere}: ${count}`}
-                      labelLine={false}
-                      isAnimationActive={true}
-                    >
-                      {filiereStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value, name, props) => [`${value} étudiants`, props.payload.filiere]} />
-                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  Aucune donnée détaillée disponible
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Graphique stages trouvés vs requis */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-4">Stages trouvés vs étudiants par filière</h3>
-            <div className="h-64">
-              {filiereStats && filiereStats.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={filiereStats}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
-                    barGap={0}
-                    barCategoryGap="20%"
-                  >
-                    <XAxis 
-                      dataKey="filiere" 
-                      angle={-45} 
-                      textAnchor="end" 
-                      height={60} 
-                      tick={{ fontSize: 12 }} 
-                    />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`${value} étudiants`, '']} />
-                    <Legend wrapperStyle={{ paddingTop: "10px" }} />
-                    <Bar 
-                      dataKey="stagesFound" 
-                      name="Stages trouvés" 
-                      fill="#3B82F6" 
-                      radius={[4, 4, 0, 0]}
-                      isAnimationActive={true}
-                    />
-                    <Bar 
-                      dataKey="count" 
-                      name="Étudiants total" 
-                      fill="#60A5FA" 
-                      radius={[4, 4, 0, 0]}
-                      isAnimationActive={true}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  Aucune donnée disponible
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* TroINSTIème rangée: activités récentes en format horizontal */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      {/* Activités récentes - reste en dessous */}
+      <div className="bg-white p-6 rounded-lg shadow mt-6">
         <h3 className="text-sm font-medium text-gray-500 mb-4">Activités récentes</h3>
         
         {activitesRecentes.length > 0 ? (
@@ -439,19 +381,20 @@ export function AdminDashboardOverview() {
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-medium">{activite.description}</p>
                     <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                      activite.type === 'proposition_stage' ? 'bg-blue-100 text-blue-800' :
-                      activite.type === 'inscription' ? 'bg-green-100 text-green-800' :
-                      activite.type === 'convention' ? 'bg-purple-100 text-purple-800' :
+                      activite.type_activite === 'proposition_stage' ? 'bg-blue-100 text-blue-800' :
+                      activite.type_activite === 'inscription' ? 'bg-green-100 text-green-800' :
+                      activite.type_activite === 'convention' ? 'bg-purple-100 text-purple-800' :
+                      activite.type_activite === 'soutenance' ? 'bg-yellow-100 text-yellow-800' :
+                      activite.type_activite === 'memoire' ? 'bg-indigo-100 text-indigo-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {activite.type === 'proposition_stage' ? 'Stage' :
-                      activite.type === 'inscription' ? 'Inscription' :
-                      activite.type === 'convention' ? 'Convention' : 'Action'}
+                      {activite.type_activite.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </span>
                   </div>
                   <div className="mt-auto">
                     <p className="text-xs text-gray-500">
-                      {new Date(activite.date_creation).toLocaleDateString()} par {activite.nom ? `${activite.prenom} ${activite.nom}` : 'Système'}
+                      {new Date(activite.date_activite).toLocaleDateString()}
+                      {activite.valeur && <span className="font-semibold"> ({activite.valeur})</span>}
                     </p>
                   </div>
                 </div>

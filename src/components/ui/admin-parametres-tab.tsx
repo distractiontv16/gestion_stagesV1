@@ -7,7 +7,7 @@ interface Parametre {
   filiere_nom: string;
   nb_etudiants: number;
   nb_stages_requis: number;
-  pourcentage_reussite: number;
+  // pourcentage_reussite: number;
 }
 
 export function AdminParametresTab() {
@@ -67,8 +67,8 @@ export function AdminParametresTab() {
     setEditingId(parametre.id);
     setEditValues({
       nb_etudiants: parametre.nb_etudiants,
-      nb_stages_requis: parametre.nb_stages_requis,
-      pourcentage_reussite: parametre.pourcentage_reussite
+      nb_stages_requis: parametre.nb_etudiants,
+      // pourcentage_reussite: parametre.pourcentage_reussite
     });
   };
   
@@ -199,14 +199,14 @@ export function AdminParametresTab() {
                 {parametres.reduce((sum, param) => sum + param.nb_stages_requis, 0)}
               </p>
             </div>
-            <div className="p-3 bg-purple-50 rounded">
-              <p className="text-sm text-gray-500">Taux moyen</p>
-              <p className="text-xl font-bold text-purple-700">
-                {parametres.length > 0 
-                  ? (parametres.reduce((sum, param) => sum + param.pourcentage_reussite, 0) / parametres.length).toFixed(2)
-                  : "0.00"}%
+            {/* La statistique "Stages réussis" n'a plus de sens si on supprime la colonne pourcentage_reussite
+            <div className="p-3 bg-yellow-50 rounded">
+              <p className="text-sm text-gray-500">Total des stages réussis</p>
+              <p className="text-xl font-bold text-yellow-700">
+                {parametres.reduce((sum, param) => sum + Math.round(param.nb_etudiants * (param.pourcentage_reussite / 100)), 0)}
               </p>
             </div>
+            */}
           </div>
         </div>
       </div>
@@ -219,70 +219,48 @@ export function AdminParametresTab() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Filière
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nombre d'étudiants
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stages requis
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Pourcentage de réussite
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filière</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre d'étudiants</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stages requis (auto)</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {parametres.map(parametre => (
-              <tr key={parametre.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{parametre.filiere_nom}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === parametre.id ? (
-                    <input
+            {parametres.map((param) => (
+              <tr key={param.id}>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{param.filiere_nom}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                  {editingId === param.id ? (
+                    <input 
                       type="number"
-                      className="text-sm text-gray-900 border border-gray-300 rounded p-1 w-20"
-                      value={editValues.nb_etudiants}
+                      value={editValues.nb_etudiants || ''}
                       onChange={(e) => handleInputChange('nb_etudiants', e.target.value)}
+                      className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                   ) : (
-                    <div className="text-sm text-gray-900">{parametre.nb_etudiants}</div>
+                    param.nb_etudiants
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === parametre.id ? (
-                    <input
-                      type="number"
-                      className="text-sm text-gray-900 border border-gray-300 rounded p-1 w-20"
-                      value={editValues.nb_stages_requis}
-                      onChange={(e) => handleInputChange('nb_stages_requis', e.target.value)}
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                  {editingId === param.id ? (
+                    <input 
+                      type="number" 
+                      value={editValues.nb_stages_requis || ''} 
+                      onChange={(e) => {
+                        handleInputChange('nb_stages_requis', e.target.value)
+                      }}
+                      className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      readOnly
                     />
                   ) : (
-                    <div className="text-sm text-gray-900">{parametre.nb_stages_requis}</div>
+                    param.nb_etudiants
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === parametre.id ? (
-                    <input
-                      type="number"
-                      className="text-sm text-gray-900 border border-gray-300 rounded p-1 w-20"
-                      value={editValues.pourcentage_reussite}
-                      onChange={(e) => handleInputChange('pourcentage_reussite', e.target.value)}
-                    />
-                  ) : (
-                    <div className="text-sm text-gray-900">{parametre.pourcentage_reussite}%</div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {editingId === parametre.id ? (
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                  {editingId === param.id ? (
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleSave(parametre.id)}
+                        onClick={() => handleSave(param.id)}
                         className="text-green-600 hover:text-green-900"
                       >
                         Enregistrer
@@ -296,7 +274,7 @@ export function AdminParametresTab() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => handleEditStart(parametre)}
+                      onClick={() => handleEditStart(param)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Éditer

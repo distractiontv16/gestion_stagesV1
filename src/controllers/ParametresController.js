@@ -32,8 +32,8 @@ export const getParametresParFiliere = async (req, res) => {
       pf.filiere_id,
       f.nom as filiere_nom,
       pf.nb_etudiants,
-      pf.nb_stages_requis,
-      pf.pourcentage_reussite
+      pf.nb_stages_requis
+      -- pf.pourcentage_reussite -- Supprimez ou commentez cette ligne
     FROM 
       parametres_filieres pf
     JOIN 
@@ -41,6 +41,7 @@ export const getParametresParFiliere = async (req, res) => {
     ORDER BY 
       f.nom`;
     
+    console.log('REQUETE SQL EXECUTEE:', sqlQuery);
     debug('Query SQL:', sqlQuery);
     const { rows: parametres } = await query(sqlQuery);
     debug('Résultat de la requête:', parametres);
@@ -73,16 +74,16 @@ export const getParametresParFiliere = async (req, res) => {
  */
 export const updateParametresFiliere = async (req, res) => {
   const { id } = req.params;
-  const { nb_etudiants, nb_stages_requis, pourcentage_reussite } = req.body;
+  const { nb_etudiants, nb_stages_requis } = req.body;
 
   debug('Appel API: updateParametresFiliere pour id:', id);
-  debug('Données reçues:', { nb_etudiants, nb_stages_requis, pourcentage_reussite });
+  debug('Données reçues:', { nb_etudiants, nb_stages_requis });
 
   // Vérification des données
-  if (!nb_etudiants || !nb_stages_requis || pourcentage_reussite === undefined) {
+  if (!nb_etudiants || !nb_stages_requis) {
     return res.status(400).json({
       success: false,
-      message: 'Veuillez fournir toutes les informations nécessaires (nb_etudiants, nb_stages_requis, pourcentage_reussite)'
+      message: 'Veuillez fournir toutes les informations nécessaires (nb_etudiants, nb_stages_requis)'
     });
   }
 
@@ -104,12 +105,11 @@ export const updateParametresFiliere = async (req, res) => {
     const updateQuery = `UPDATE parametres_filieres 
       SET 
         nb_etudiants = $1,
-        nb_stages_requis = $2,
-        pourcentage_reussite = $3
+        nb_stages_requis = $2
       WHERE 
-        id = $4`;
+        id = $3`;
     
-    const updateParams = [nb_etudiants, nb_stages_requis, pourcentage_reussite, id];
+    const updateParams = [nb_etudiants, nb_stages_requis, id];
     debug('Query SQL (update):', updateQuery, updateParams);
     await query(updateQuery, updateParams);
     debug('Mise à jour réussie');

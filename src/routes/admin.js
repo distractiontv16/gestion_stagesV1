@@ -4,6 +4,9 @@ import * as StatistiquesController from '../controllers/StatistiquesController.j
 import * as ParametresController from '../controllers/ParametresController.js';
 import * as EtudiantsController from '../controllers/EtudiantsController.js';
 import * as PropositionsController from '../controllers/PropositionsController.js';
+import * as NotificationsController from '../controllers/NotificationsController.js';
+import * as ProjetsRealisesController from '../controllers/ProjetsRealisesController.js';
+import * as PropositionsThemesController from '../controllers/PropositionsThemesController.js';
 import db from '../config/db.js';
 const { query: pool } = db;
 
@@ -35,6 +38,24 @@ router.get('/propositions', PropositionsController.getPropositions);
 router.post('/propositions', PropositionsController.createProposition);
 router.put('/propositions/:id', PropositionsController.updateProposition);
 router.delete('/propositions/:id', PropositionsController.deleteProposition);
+
+// Routes pour les notifications (ADMIN)
+router.get('/notifications', NotificationsController.getNotifications);
+router.post('/notifications', NotificationsController.createNotification);
+
+// Routes pour les Projets Réalisés (ADMIN)
+router.get('/projets-realises', ProjetsRealisesController.getProjetsRealises);
+router.post('/projets-realises', ProjetsRealisesController.createProjetRealise);
+router.get('/projets-realises/:id', ProjetsRealisesController.getProjetRealiseById);
+router.put('/projets-realises/:id', ProjetsRealisesController.updateProjetRealise);
+router.delete('/projets-realises/:id', ProjetsRealisesController.deleteProjetRealise);
+
+// Routes pour les Propositions de Thèmes (ADMIN)
+router.get('/propositions-themes', PropositionsThemesController.getPropositionsThemes);
+router.post('/propositions-themes', PropositionsThemesController.createPropositionTheme);
+router.get('/propositions-themes/:id', PropositionsThemesController.getPropositionThemeById);
+router.put('/propositions-themes/:id', PropositionsThemesController.updatePropositionTheme);
+router.delete('/propositions-themes/:id', PropositionsThemesController.deletePropositionTheme);
 
 // Route de débogage SQL pour les administrateurs uniquement
 router.post('/debug', async (req, res) => {

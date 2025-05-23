@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StageForm } from '@/components/ui/stage-form';
 import { ProjetsTab } from '@/components/ui/projets-tab';
@@ -8,6 +8,7 @@ import ProfileTab from '@/components/student/dashboard/ProfileTab';
 import InternshipInfoTab from '@/components/student/dashboard/InternshipInfoTab';
 import FindInternshipTab from '@/components/student/dashboard/FindInternshipTab';
 import NotificationsTab from '@/components/student/dashboard/NotificationsTab';
+import { InternshipOffer } from '@/types';
 
 // Liste des filières pour mappage ID -> nom
 const filieres = [
@@ -57,17 +58,6 @@ export interface StageInfo {
   statut_maitre_memoire?: string;
 }
 
-// Définition de l'interface pour les offres de stage, si elle n'est pas déjà globale
-interface InternshipOffer {
-  id: number;
-  company: string;
-  position: string;
-  location: string;
-  description: string;
-  requirements: string;
-  duration: string;
-}
-
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('infos');
   const [showStageForm, setShowStageForm] = useState(false);
@@ -85,6 +75,9 @@ const StudentDashboard = () => {
     filiere: '',
     telephone: '',
   });
+  const [internshipOffers, setInternshipOffers] = useState<InternshipOffer[]>([]);
+  const [isLoadingInternships, setIsLoadingInternships] = useState(true);
+  const [errorInternships, setErrorInternships] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -177,19 +170,27 @@ const StudentDashboard = () => {
     }
   };
 
-  // Données fictives pour les propositions de stages
-  const internshipOffers: InternshipOffer[] = [
-    {
-      id: 1, company: 'SONATEL', position: 'Développeur Full Stack', location: 'Dakar, Sénégal',
-      description: 'Stage de fin d\'études pour le développement d\'applications web modernes.',
-      requirements: 'React, Node.js, MongoDB', duration: '6 mois'
-    },
-    {
-      id: 2, company: 'FREE', position: 'Ingénieur Réseau', location: 'Dakar, Sénégal',
-      description: 'Stage dans le domaine des réseaux et télécommunications.',
-      requirements: 'Cisco, Réseaux IP, Administration système', duration: '4 mois'
-    }
-  ];
+  useEffect(() => {
+    const fetchInternshipOffers = async () => {
+      setIsLoadingInternships(true);
+      setErrorInternships(null);
+      try {
+        const response = await fetch('/api/propositions-stages');
+        if (!response.ok) {
+          throw new Error('Erreur lors de la récupération des offres de stage');
+        }
+        const data = await response.json();
+        setInternshipOffers(data);
+      } catch (error) {
+        console.error("Erreur fetchInternshipOffers:", error);
+        setErrorInternships(error instanceof Error ? error.message : String(error));
+      } finally {
+        setIsLoadingInternships(false);
+      }
+    };
+
+    fetchInternshipOffers();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

@@ -22,40 +22,6 @@ interface UserInfo {
   role?: string;
 }
 
-// Mock data for internship proposals, to be passed to AdminProposalsTab
-const initialInternshipProposals = [
-    {
-      id: 1,
-      company: 'SONATEL',
-      position: 'Développeur Full Stack',
-      location: 'Dakar, Sénégal',
-      description: 'Stage de fin d\'études pour le développement d\'applications web modernes.',
-      requirements: 'React, Node.js, MongoDB',
-      duration: '6 mois',
-      filiere: 'GEI/IT'
-    },
-    {
-      id: 2,
-      company: 'FREE',
-      position: 'Ingénieur Réseau',
-      location: 'Dakar, Sénégal',
-      description: 'Stage dans le domaine des réseaux et télécommunications.',
-      requirements: 'Cisco, Réseaux IP, Administration système',
-      duration: '4 mois',
-      filiere: 'GEI/EE'
-    },
-    {
-      id: 3,
-      company: 'SGBS',
-      position: 'Analyste de données',
-      location: 'Dakar, Sénégal',
-      description: 'Stage d\'analyse de données financières et création de tableaux de bord.',
-      requirements: 'Excel, Power BI, SQL',
-      duration: '5 mois',
-      filiere: 'GE/ER'
-    }
-];
-
 const tabLabels: { [key: string]: string } = {
   dashboard: 'Tableau de Bord',
   students: 'Gestion des Étudiants',
@@ -79,8 +45,6 @@ const AdminDashboard = () => {
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile sidebar toggle
   
-  // Removed states and handlers for proposals as they are managed within AdminProposalsTab
-
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
@@ -180,7 +144,7 @@ const AdminDashboard = () => {
           {activeTab === 'students' && <AdminStudentsTab />}
           {activeTab === 'projets' && <AdminProjetsTab />}
           {activeTab === 'proposals' && (
-            <AdminProposalsTab initialProposals={initialInternshipProposals} />
+            <AdminProposalsTab />
           )}
           {activeTab === 'notifications' && <AdminNotificationsTab />}
           {activeTab === 'evaluations' && <AdminEvaluationsTab />}

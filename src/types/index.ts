@@ -50,14 +50,13 @@ export interface PropositionTheme {
   id: number;
   titre: string;
   description: string;
-  fonctionnalites: string[];
-  auteur: {
-    nom: string;
-    type: 'Enseignant' | 'Étudiant' | 'Entreprise' | 'Autre';
-  };
-  difficulte: 'Facile' | 'Intermédiaire' | 'Difficile';
+  fonctionnalites?: string[];
+  auteur_nom: string;
+  auteur_type: 'Enseignant' | 'Étudiant' | 'Entreprise' | 'Autre' | string;
+  nom_filiere?: string;
+  difficulte: 'Facile' | 'Intermédiaire' | 'Difficile' | string;
   technologies_suggerees?: string[];
-  date_ajout?: string;
+  date_soumission?: string;
 }
 
 export interface StageFormData {
@@ -88,4 +87,20 @@ export interface StageFormData {
   telephoneMaitreMemoire: string;
   emailMaitreMemoire: string;
   statutMaitreMemoire: 'Permanent' | 'Vacataire' | '';
+}
+
+export interface InternshipOffer {
+  id: number;
+  entreprise_nom: string;
+  titre: string; // Correspond à 'position' dans les données fictives
+  location: string;
+  description: string;
+  requirements: string; // Ou string[] si c'est une liste ? Pour l'instant string.
+  duration: string;
+  filiere_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  date_publication?: string | null;
+  statut?: string | null;
+  entreprise_id?: number | null;
 } 

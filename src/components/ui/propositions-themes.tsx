@@ -17,12 +17,12 @@ export const PropositionsThemes: React.FC<PropositionsThemesProps> = ({ proposit
     // Filtre par terme de recherche
     const matchesSearch = 
       prop.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prop.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prop.auteur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (prop.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (prop.auteur_nom?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (prop.technologies_suggerees?.some(tech => tech.toLowerCase().includes(searchTerm.toLowerCase())) || false);
       
     // Filtre par type d'auteur
-    const matchesAuteurFilter = !activeFilter || prop.auteur.type === activeFilter;
+    const matchesAuteurFilter = !activeFilter || prop.auteur_type === activeFilter;
     
     // Filtre par difficulté
     const matchesDifficulteFilter = !difficulteFilter || prop.difficulte === difficulteFilter;
@@ -31,7 +31,7 @@ export const PropositionsThemes: React.FC<PropositionsThemesProps> = ({ proposit
   });
   
   // Types d'auteur uniques pour filtrage
-  const auteurTypes = [...new Set(propositions.map(prop => prop.auteur.type))];
+  const auteurTypes = [...new Set(propositions.map(prop => prop.auteur_type).filter(Boolean))];
   
   // Niveaux de difficulté pour filtrage
   const difficultes = ['Facile', 'Intermédiaire', 'Difficile'];
@@ -151,7 +151,7 @@ export const PropositionsThemes: React.FC<PropositionsThemesProps> = ({ proposit
               </div>
               
               <p className="text-sm text-gray-600 mb-2">
-                Proposé par {proposition.auteur.nom} ({proposition.auteur.type})
+                Proposé par {proposition.auteur_nom} ({proposition.auteur_type})
               </p>
               
               <p className="text-sm text-gray-700 line-clamp-3 mb-2">
@@ -192,7 +192,7 @@ export const PropositionsThemes: React.FC<PropositionsThemesProps> = ({ proposit
                     {renderDifficultyBadge(selectedProposition.difficulte)}
                   </div>
                   <p className="text-gray-600">
-                    Proposé par {selectedProposition.auteur.nom} ({selectedProposition.auteur.type})
+                    Proposé par {selectedProposition.auteur_nom} ({selectedProposition.auteur_type})
                   </p>
                 </div>
                 <button

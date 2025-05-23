@@ -59,9 +59,9 @@ export const ProjetsRealises: React.FC<ProjetsRealisesProps> = ({ projets }) => 
         />
         
         <div className="flex flex-wrap gap-2">
-          {filieres.map(filiere => (
+          {filieres.map((filiere, index) => (
             <button
-              key={filiere}
+              key={`${filiere}-${index}`}
               onClick={() => handleFilterClick(filiere)}
               className={`px-3 py-1 text-xs font-medium rounded-full ${
                 activeFilter === filiere
@@ -97,7 +97,7 @@ export const ProjetsRealises: React.FC<ProjetsRealisesProps> = ({ projets }) => 
               <div className="flex flex-wrap gap-1 mt-2">
                 {projet.technologies.slice(0, 3).map((tech, index) => (
                   <span
-                    key={index}
+                    key={`tech-${tech}-${index}`}
                     className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full"
                   >
                     {tech}
@@ -147,7 +147,7 @@ export const ProjetsRealises: React.FC<ProjetsRealisesProps> = ({ projets }) => 
                   <div className="flex flex-wrap gap-2">
                     {selectedProjet.technologies.map((tech, index) => (
                       <span
-                        key={index}
+                        key={`modal-tech-${tech}-${index}`}
                         className="inline-block bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full"
                       >
                         {tech}
@@ -160,7 +160,7 @@ export const ProjetsRealises: React.FC<ProjetsRealisesProps> = ({ projets }) => 
                   <h3 className="text-lg font-semibold mb-1">Points forts du projet</h3>
                   <ul className="list-disc pl-5 text-gray-700">
                     {selectedProjet.points_forts.map((point, index) => (
-                      <li key={index}>{point}</li>
+                      <li key={`point-fort-${point}-${index}`}>{point}</li>
                     ))}
                   </ul>
                 </section>
@@ -169,7 +169,7 @@ export const ProjetsRealises: React.FC<ProjetsRealisesProps> = ({ projets }) => 
                   <h3 className="text-lg font-semibold mb-1">Points d'amélioration possibles</h3>
                   <ul className="list-disc pl-5 text-gray-700">
                     {selectedProjet.points_amelioration.map((point, index) => (
-                      <li key={index}>{point}</li>
+                      <li key={`point-amelioration-${point}-${index}`}>{point}</li>
                     ))}
                   </ul>
                 </section>

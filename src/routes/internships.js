@@ -1,7 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import db from '../config/db.js';
-const { query: pool } = db;
+import pool from '../config/db.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();

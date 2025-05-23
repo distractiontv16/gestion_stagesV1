@@ -103,6 +103,12 @@ const setupRoutes = async () => {
       console.error('Erreur: adminRoutes.default n\'est pas un routeur valide');
     }
     
+    // Routes for public projects and propositions
+    console.log('Chargement des routes projetsPublics...');
+    const projetsPublicsRoutes = await import('./src/routes/projetsPublics.js');
+    app.use('/api', projetsPublicsRoutes.default);
+    console.log('Routes projetsPublics chargées avec succès');
+    
     // Import the auth middleware
     console.log('Chargement du middleware auth...');
     const authMiddleware = await import('./src/middleware/auth.js');

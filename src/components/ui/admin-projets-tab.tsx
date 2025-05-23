@@ -1,10 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { ProjetRealise, PropositionTheme } from '@/types';
+import React, { useState, useEffect, useCallback } from 'react';
+// import { ProjetRealise, Filiere } from '@/types'; // Commenté pour utiliser des définitions locales temporaires
+// import { PropositionTheme } from '@/types'; // Supprimer cet import car PropositionTheme est défini localement
 import { SearchBar } from './search-bar';
 import { AdminProjetsForm } from './admin-projets-form';
 
-// Importer les données fictives depuis le composant précédent
-import { projetsFictifs, propositionsFictives } from './projets-tab';
+// Supprimer l'import des données fictives
+
+// Définition locale de Filiere (si non exportée de @/types)
+interface Filiere {
+  filiere_id: number;
+  filiere_nom: string;
+}
+
+// Définition locale de ProjetRealise pour correspondre à l'API
+interface ProjetRealise { 
+  id: number;
+  titre: string;
+  description?: string | null; // Rendre optionnel ou nullable si c'est le cas
+  auteur?: string | null;
+  annee?: number | null;
+  filiere_id?: number | null;
+  nom_filiere?: string | null;
+  technologies?: string[] | null;
+  points_forts?: string[] | null;
+  points_amelioration?: string[] | null;
+  date_publication?: string | null; // ou Date
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Définition locale de PropositionTheme pour correspondre à l'API
+interface PropositionTheme {
+  id: number;
+  titre: string;
+  description?: string | null;
+  auteur_nom?: string | null;
+  auteur_type?: 'enseignant' | 'entreprise' | 'etudiant' | 'autre' | null;
+  filiere_id?: number | null;
+  nom_filiere?: string | null; // Ajouté par la jointure SQL
+  entreprise_nom?: string | null;
+  email_contact?: string | null;
+  difficulte?: 'Facile' | 'Intermédiaire' | 'Difficile' | 'Non spécifiée' | null;
+  technologies_suggerees?: string[] | null;
+  objectifs_pedagogiques?: string | null;
+  est_validee?: boolean | null;
+  statut?: 'soumise' | 'approuvee' | 'rejetee' | 'archivee' | null;
+  date_soumission?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface AdminProjetsTabProps {
   // Props si nécessaire
@@ -13,33 +57,126 @@ interface AdminProjetsTabProps {
 export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
   const [activeTab, setActiveTab] = useState<'realises' | 'propositions'>('realises');
   const [projets, setProjets] = useState<ProjetRealise[]>([]);
-  const [propositions, setPropositions] = useState<PropositionTheme[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [propositions, setPropositions] = useState<PropositionTheme[]>([]); // Initialiser à vide
+  const [filieres, setFilieres] = useState<Filiere[]>([]);
+  
+  const [isLoading, setIsLoading] = useState(false); // Chargement principal pour l'onglet actif
+  const [isLoadingFilieres, setIsLoadingFilieres] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorFilieres, setErrorFilieres] = useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [editingItem, setEditingItem] = useState<ProjetRealise | PropositionTheme | null>(null);
   const [showForm, setShowForm] = useState(false);
-  
-  // Charger les données (fictives pour l'instant)
-  useEffect(() => {
-    setLoading(true);
-    
-    // Simuler un appel API
-    setTimeout(() => {
-      setProjets(projetsFictifs);
-      setPropositions(propositionsFictives);
-      setLoading(false);
-    }, 500);
+
+  const API_BASE_URL = '/api/admin'; // Ajuster si nécessaire
+
+  const fetchProjetsRealises = useCallback(async (token: string | null) => {
+    setIsLoading(true);
+    setError(null);
+    if (!token) { setError('Token authentification manquant'); setIsLoading(false); return; }
+    try {
+      const response = await fetch(`${API_BASE_URL}/projets-realises`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      // Gestion de la réponse non JSON (ex: erreur HTML)
+      if (!response.headers.get("content-type")?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Réponse inattendue du serveur: ${response.status} - ${text}`);
+      }
+      const data = await response.json(); // Renommé de result à data pour clarté
+      if (!response.ok) throw new Error(data.message || `HTTP error! ${response.status}`);
+      // L'API projets-realises ne retourne pas de champ 'success', elle retourne directement les données ou une erreur
+      setProjets(data.data || []);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      console.error("Erreur fetchProjetsRealises:", errorMessage, err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Nouvelle fonction pour récupérer les propositions de thèmes
+  const fetchPropositionsThemes = useCallback(async (token: string | null) => {
+    setIsLoading(true);
+    setError(null);
+    if (!token) { setError('Token authentification manquant'); setIsLoading(false); return; }
+    try {
+      const response = await fetch(`${API_BASE_URL}/propositions-themes`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.headers.get("content-type")?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Réponse inattendue du serveur: ${response.status} - ${text}`);
+      }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || `HTTP error! ${response.status}`);
+      setPropositions(data || []);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      console.error("Erreur fetchPropositionsThemes:", errorMessage, err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchFilieresForForm = useCallback(async (token: string | null) => {
+    setIsLoadingFilieres(true);
+    setErrorFilieres(null);
+    if (!token) { setErrorFilieres('Token manquant'); setIsLoadingFilieres(false); return; }
+    try {
+      const response = await fetch(`${API_BASE_URL}/parametres/filiere`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.headers.get("content-type")?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Réponse inattendue du serveur (filières): ${response.status} - ${text}`);
+      }
+      const result = await response.json();
+      // L'API filieres retourne { success: boolean, data: [] } ou { success: false, message: string }
+      if (result.success && Array.isArray(result.data)) {
+        setFilieres(result.data.map((item: any) => ({ filiere_id: item.filiere_id, filiere_nom: item.filiere_nom })));
+      } else if (!result.success) {
+        throw new Error(result.message || 'Échec de la récupération des filières (success false)');
+      } else {
+         throw new Error('Format de données des filières inattendu.');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setErrorFilieres(errorMessage);
+      console.error("Erreur fetchFilieresForForm:", errorMessage, err);
+    } finally {
+      setIsLoadingFilieres(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError("Utilisateur non authentifié. Veuillez vous reconnecter.");
+      // Optionnel: rediriger vers la page de login
+      return;
+    }
+    if (activeTab === 'realises') {
+      fetchProjetsRealises(token);
+    } else if (activeTab === 'propositions') {
+      fetchPropositionsThemes(token); // Appeler la nouvelle fonction
+    }
+    fetchFilieresForForm(token);
+  }, [activeTab, fetchProjetsRealises, fetchPropositionsThemes, fetchFilieresForForm]);
   
-  // Filtrer les éléments en fonction du terme de recherche
   const filteredProjets = projets.filter(projet => 
-    projet.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    projet.auteur.toLowerCase().includes(searchTerm.toLowerCase())
+    (projet.titre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (projet.auteur?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (projet.nom_filiere?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
   
   const filteredPropositions = propositions.filter(proposition => 
-    proposition.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    proposition.auteur.nom.toLowerCase().includes(searchTerm.toLowerCase())
+    (proposition.titre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (proposition.auteur_nom?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (proposition.nom_filiere?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
   
   const handleSearchChange = (term: string) => {
@@ -56,14 +193,40 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
     setShowForm(true);
   };
   
-  const handleDelete = (id: number) => {
-    if (activeTab === 'realises') {
-      if (window.confirm('Êtes-vous sûr de vouloir supprimer ce projet?')) {
-        setProjets(projets.filter(projet => projet.id !== id));
-      }
-    } else {
-      if (window.confirm('Êtes-vous sûr de vouloir supprimer cette proposition?')) {
-        setPropositions(propositions.filter(proposition => proposition.id !== id));
+  const handleDelete = async (id: number) => {
+    const token = localStorage.getItem('token');
+    if (!token) { alert('Non authentifié'); return; }
+
+    const isProjet = activeTab === 'realises';
+    const endpoint = isProjet ? `${API_BASE_URL}/projets-realises/${id}` : `${API_BASE_URL}/propositions-themes/${id}`;
+    const itemName = isProjet ? 'projet réalisé' : 'proposition de thème';
+
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer ce ${itemName}?`)) {
+      setIsLoading(true);
+      try {
+        const response = await fetch(endpoint, { 
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        // Pas toujours de .json() sur un DELETE réussi, vérifier le statut
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `Erreur lors de la suppression ${itemName}`}) );
+          throw new Error(errorData.message || `Erreur HTTP ${response.status} lors de la suppression`);
+        }
+        // Un simple message peut suffire si le backend retourne 200 OK sans corps ou un message simple
+        alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} supprimé avec succès!`);
+        if (isProjet) {
+          fetchProjetsRealises(token);
+        } else {
+          fetchPropositionsThemes(token);
+        }
+      } catch (err) { 
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        alert(`Erreur: ${errorMessage}`);
+        setError(errorMessage);
+        console.error(`Erreur handleDelete ${itemName}:`, errorMessage, err);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -73,36 +236,74 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
     setEditingItem(null);
   };
   
-  const handleFormSubmit = (data: ProjetRealise | PropositionTheme) => {
-    if (activeTab === 'realises') {
-      const isEditing = editingItem !== null;
-      
-      if (isEditing) {
-        // Mise à jour d'un projet existant
-        setProjets(projets.map(projet => 
-          projet.id === (editingItem as ProjetRealise).id ? { ...data, id: projet.id } as ProjetRealise : projet
-        ));
-      } else {
-        // Ajout d'un nouveau projet
-        const maxId = projets.reduce((max, projet) => Math.max(max, projet.id), 0);
-        setProjets([...projets, { ...data, id: maxId + 1 } as ProjetRealise]);
-      }
-    } else {
-      const isEditing = editingItem !== null;
-      
-      if (isEditing) {
-        // Mise à jour d'une proposition existante
-        setPropositions(propositions.map(proposition => 
-          proposition.id === (editingItem as PropositionTheme).id ? { ...data, id: proposition.id } as PropositionTheme : proposition
-        ));
-      } else {
-        // Ajout d'une nouvelle proposition
-        const maxId = propositions.reduce((max, proposition) => Math.max(max, proposition.id), 0);
-        setPropositions([...propositions, { ...data, id: maxId + 1 } as PropositionTheme]);
-      }
+  const handleFormSubmit = async (formData: any) => {
+    const token = localStorage.getItem('token');
+    if (!token) { alert('Non authentifié'); return; }
+
+    setIsLoading(true);
+    const isProjet = activeTab === 'realises';
+    let endpoint = isProjet ? `${API_BASE_URL}/projets-realises` : `${API_BASE_URL}/propositions-themes`;
+    let method = 'POST';
+    const itemName = isProjet ? 'projet réalisé' : 'proposition de thème';
+
+    // Pour la mise à jour, l'ID est dans editingItem
+    if (editingItem && editingItem.id) {
+      endpoint = `${endpoint}/${editingItem.id}`;
+      method = 'PUT';
     }
-    
-    closeForm();
+
+    // Nettoyer formData pour éviter d'envoyer des champs non attendus ou vides qui pourraient causer des erreurs SQL
+    // Par exemple, si filiere_id est une string vide, la convertir en null.
+    const dataToSubmit = { ...formData };
+    if (dataToSubmit.filiere_id === '' || dataToSubmit.filiere_id === undefined) {
+        dataToSubmit.filiere_id = null;
+    }
+    // Pour les champs spécifiques à proposition ou projet, s'assurer qu'ils sont bien envoyés ou null
+    if (isProjet) {
+        // S'assurer que les champs spécifiques à projet sont bien formatés si nécessaire
+    } else {
+        // S'assurer que les champs spécifiques à proposition sont bien formatés
+        // exemple: technologies_suggerees doit être un array
+        if (typeof dataToSubmit.technologies_suggerees === 'string') {
+            dataToSubmit.technologies_suggerees = dataToSubmit.technologies_suggerees.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+        } else if (!Array.isArray(dataToSubmit.technologies_suggerees)) {
+            dataToSubmit.technologies_suggerees = [];
+        }
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(dataToSubmit),
+      });
+
+      // Gestion de la réponse non JSON
+      if (!response.headers.get("content-type")?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Réponse inattendue du serveur (${method} ${itemName}): ${response.status} - ${text}`);
+      }
+
+      const result = await response.json();
+      // Les contrôleurs retournent directement les données (200 ou 201) ou un objet erreur ({message: ...}) avec un statut > 400
+      if (!response.ok) throw new Error(result.message || `Erreur ${method === 'POST' ? 'création' : 'MàJ'} ${itemName}`);
+      
+      alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} ${method === 'POST' ? 'créé' : 'mis à jour'} avec succès!`);
+      
+      if (isProjet) {
+        fetchProjetsRealises(token);
+      } else {
+        fetchPropositionsThemes(token);
+      }
+      closeForm();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      alert(`Erreur: ${errorMessage}`);
+      setError(errorMessage); // Afficher l'erreur principale pour l'onglet
+      console.error(`Erreur handleFormSubmit ${itemName}:`, errorMessage, err);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -153,10 +354,12 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
       </div>
       
       {/* État de chargement */}
-      {loading ? (
+      {isLoading ? (
         <div className="py-8 flex justify-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
         </div>
+      ) : error && activeTab === 'realises' ? (
+        <p className="text-center text-red-500 py-10">Erreur lors du chargement des projets: {error}</p>
       ) : (
         <>
           {/* Tableau des projets réalisés */}
@@ -189,7 +392,7 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
                   {filteredProjets.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                        Aucun projet trouvé
+                        Aucun projet réalisé trouvé.
                       </td>
                     </tr>
                   ) : (
@@ -205,18 +408,18 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
                           {projet.annee}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {projet.filiere}
+                          {projet.nom_filiere || `ID: ${projet.filiere_id}`}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
                           <div className="flex flex-wrap gap-1">
-                            {projet.technologies.slice(0, 2).map((tech, index) => (
+                            {(projet.technologies || []).slice(0, 2).map((tech, index) => (
                               <span key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
                                 {tech}
                               </span>
                             ))}
-                            {projet.technologies.length > 2 && (
+                            {(projet.technologies?.length || 0) > 2 && (
                               <span className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded-full">
-                                +{projet.technologies.length - 2}
+                                +{(projet.technologies?.length || 0) - 2}
                               </span>
                             )}
                           </div>
@@ -285,10 +488,10 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
                           {proposition.titre}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {proposition.auteur.nom}
+                          {proposition.auteur_nom}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {proposition.auteur.type}
+                          {proposition.auteur_type}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 py-1 text-xs rounded-full ${
@@ -300,7 +503,7 @@ export const AdminProjetsTab: React.FC<AdminProjetsTabProps> = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {proposition.date_ajout}
+                          {proposition.date_soumission}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">

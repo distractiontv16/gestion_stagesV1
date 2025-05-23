@@ -1,12 +1,4 @@
-interface InternshipOffer {
-  id: number;
-  company: string;
-  position: string;
-  location: string;
-  description: string;
-  requirements: string;
-  duration: string;
-}
+import { InternshipOffer } from '@/types'; // Importer depuis les types globaux
 
 interface FindInternshipTabProps {
   hasFoundInternship: boolean | null;
@@ -78,8 +70,8 @@ const FindInternshipTab = ({
                 <div key={offer.id} className="bg-white border border-gray-200 rounded-lg p-5 shadow-md hover:shadow-lg transition-shadow duration-200 ease-in-out">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div className="flex-grow">
-                      <h4 className="font-bold text-lg text-blue-700">{offer.position}</h4>
-                      <p className="text-gray-800 font-medium text-md">{offer.company}</p>
+                      <h4 className="font-bold text-lg text-blue-700">{offer.titre}</h4>
+                      <p className="text-gray-800 font-medium text-md">{offer.entreprise_nom}</p>
                       <p className="text-gray-600 text-sm mt-1">{offer.location} • <span className="font-medium">Durée: {offer.duration}</span></p>
                     </div>
                     <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out self-start sm:self-center whitespace-nowrap">

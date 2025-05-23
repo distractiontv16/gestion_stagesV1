@@ -97,7 +97,7 @@ export const AdminLoginForm = () => {
             <h1 className="text-2xl font-semibold">Administration</h1>
           </div>
           <p className="mt-2 opacity-90">
-            Plateforme de Gestion des Stages - ISI
+            Plateforme de Gestion des Stages - INSTI
           </p>
         </div>
 

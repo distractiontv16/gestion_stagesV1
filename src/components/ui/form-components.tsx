@@ -26,7 +26,7 @@ export const DisabledField = ({ label, id, name, value }: { label: string; id: s
   </div>
 );
 
-// Composant pour les champs de saisie standard
+// Composant pour les champs de saINSTIe standard
 export const InputField = ({ 
   label, 
   id, 

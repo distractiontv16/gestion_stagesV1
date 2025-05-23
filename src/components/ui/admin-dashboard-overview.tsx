@@ -427,7 +427,7 @@ export function AdminDashboardOverview() {
         </div>
       )}
       
-      {/* Troisième rangée: activités récentes en format horizontal */}
+      {/* TroINSTIème rangée: activités récentes en format horizontal */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-sm font-medium text-gray-500 mb-4">Activités récentes</h3>
         

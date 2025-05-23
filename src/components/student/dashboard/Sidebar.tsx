@@ -44,7 +44,7 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, isSidebarOpen, toggleS
           <div className="h-10 w-10 bg-blue-600 rounded-md flex items-center justify-center">
             <span className="text-white font-bold text-lg">IS</span>
           </div>
-          <h1 className="text-xl font-semibold">ISI Stages</h1>
+          <h1 className="text-xl font-semibold">INSTI Stages</h1>
         </div>
 
         {/* Navigation */}

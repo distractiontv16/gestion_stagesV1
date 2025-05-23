@@ -24,7 +24,7 @@ const Header = ({ studentInfo, handleLogout, toggleSidebar }: HeaderProps) => {
             <div className="h-9 w-9 bg-blue-600 rounded-md flex items-center justify-center">
               <span className="text-white font-bold">IS</span>
             </div>
-            <h1 className="text-xl font-bold text-gray-800">ISI Stages</h1>
+            <h1 className="text-xl font-bold text-gray-800">INSTI Stages</h1>
           </div>
           
           <div className="flex items-center gap-4">

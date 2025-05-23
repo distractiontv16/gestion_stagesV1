@@ -31,13 +31,13 @@ export const projetsFictifs: ProjetRealise[] = [
   },
   {
     id: 3,
-    titre: "Outil de prévision météorologique",
-    description: "Un système utilisant l'IA pour prédire les conditions météorologiques locales avec une précision accrue.",
+    titre: "Outil de prévINSTIon météorologique",
+    description: "Un système utilisant l'IA pour prédire les conditions météorologiques locales avec une précINSTIon accrue.",
     auteur: "Karim Idrissi",
     annee: "2023",
     filiere: "Génie Civil",
     technologies: ["Python", "TensorFlow", "Flask", "D3.js"],
-    points_forts: ["Précision de 85%", "Visualisations interactives", "API disponible"],
+    points_forts: ["PrécINSTIon de 85%", "Visualisations interactives", "API disponible"],
     points_amelioration: ["Étendre la couverture géographique", "Réduire la latence des prédictions"],
     date_ajout: "03/01/2023"
   },
@@ -59,7 +59,7 @@ export const propositionsFictives: PropositionTheme[] = [
   {
     id: 1,
     titre: "Système de reconnaissance de plantes médicinales",
-    description: "Développer une application qui utilise la vision par ordinateur pour identifier les plantes médicinales et fournir des informations sur leurs propriétés et utilisations.",
+    description: "Développer une application qui utilise la vINSTIon par ordinateur pour identifier les plantes médicinales et fournir des informations sur leurs propriétés et utilisations.",
     fonctionnalites: [
       "Reconnaissance d'image en temps réel",
       "Base de données détaillée des plantes",

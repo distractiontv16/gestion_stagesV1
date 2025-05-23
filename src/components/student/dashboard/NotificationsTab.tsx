@@ -17,7 +17,7 @@ const dummyNotifications: Notification[] = [
   },
   {
     id: '2',
-    title: 'Bienvenue sur la plateforme ISI Stages',
+    title: 'Bienvenue sur la plateforme INSTI Stages',
     message: 'Nous sommes ravis de vous accueillir ! Explorez les fonctionnalités et trouvez le stage de vos rêves.',
     date: 'Il y a 1 semaine',
     read: true,

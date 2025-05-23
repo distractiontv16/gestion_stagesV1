@@ -115,7 +115,7 @@ export const LoginForm = () => {
             <h1 className="text-2xl font-semibold">Connexion</h1>
           </div>
           <p className="mt-2 opacity-90">
-            Plateforme de Gestion des Stages - ISI
+            Plateforme de Gestion des Stages - INSTI
           </p>
         </div>
 

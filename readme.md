@@ -1,4 +1,4 @@
-# Plateforme de Gestion des Stages - ISI
+# Plateforme de Gestion des Stages - INSTI
 
 ## Description du Projet
 

@@ -15,7 +15,7 @@ Voici les modifications que je suggère :
 
 Je vais ajouter ces logs pour nous aider à voir ce qui se passe.
 
-**2. Révision du processus de migration**
+**2. RévINSTIon du processus de migration**
 
 Une fois que nous aurons plus d'informations sur l'erreur JavaScript (et espérons-le, une solution), nous pourrons nous concentrer sur la migration.
 

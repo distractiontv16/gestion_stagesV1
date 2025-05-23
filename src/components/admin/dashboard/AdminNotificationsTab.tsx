@@ -6,6 +6,7 @@ interface User { // Utilisateur simplifié pour la sélection
   email: string; 
   nom: string; // Ajouté
   prenom: string; // Ajouté
+  matricule?: string; // Ajouté pour la recherche et l'affichage
 }
 
 interface AdminNotification { // Correspond à la réponse de l'API
@@ -19,24 +20,52 @@ interface AdminNotification { // Correspond à la réponse de l'API
 
 // Pour le formulaire de création
 interface NewNotificationPayload {
-  utilisateur_id: number | null; // null si aucun utilisateur sélectionné
+  destinataire: {
+    type: 'etudiant' | 'filiere' | 'tous';
+    id?: number | null; // utilisateur_id pour 'etudiant', filiere_id pour 'filiere'
+  };
+  titre: string; // Ajout du champ titre
   message: string;
 }
+
+// Liste des filières (peut être récupérée via API plus tard)
+const filieres = [
+  { id: 1, nom: 'GEI/EE' },
+  { id: 2, nom: 'GEI/IT' },
+  { id: 3, nom: 'GE/ER' },
+  { id: 4, nom: 'GMP' },
+  { id: 5, nom: 'MSY/MI' },
+  { id: 6, nom: 'ER/SE' },
+  { id: 7, nom: 'GC/A' },
+  { id: 8, nom: 'GC/B' },
+  { id: 9, nom: 'MSY/MA' },
+  { id: 10, nom: 'GE/FC' },
+  // Ajoutez d'autres filières au besoin
+];
 
 // TODO: Récupérer depuis une API /api/users ou /api/admin/etudiants
 // const mockUsers: User[] = [ ... ]; // Supprimé
 
 const AdminNotificationsTab: React.FC = () => {
   const [notificationsHistory, setNotificationsHistory] = useState<AdminNotification[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // Initialisé à vide
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   const [newNotification, setNewNotification] = useState<NewNotificationPayload>({
-    utilisateur_id: null,
+    destinataire: {
+      type: 'etudiant', // Type par défaut
+      id: null, 
+    },
+    titre: '',
     message: ''
   });
 
+  // États pour gérer la sélection du type de destinataire et de la filière
+  const [recipientType, setRecipientType] = useState<'etudiant' | 'filiere' | 'tous'>('etudiant');
+  const [selectedFiliereId, setSelectedFiliereId] = useState<number | null>(null);
+
   const [isLoading, setIsLoading] = useState(false); // Pour l'historique et l'envoi
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false); // Pour le chargement des utilisateurs
   const [error, setError] = useState<string | null>(null); // Erreur pour l'historique
   const [errorUsers, setErrorUsers] = useState<string | null>(null); // Erreur pour les utilisateurs
   const [formError, setFormError] = useState<string | null>(null);
@@ -66,76 +95,146 @@ const AdminNotificationsTab: React.FC = () => {
     }
   }, []);
 
-  const fetchUsers = useCallback(async (token: string | null) => { // Nouvelle fonction
-    setIsLoadingUsers(true);
-    setErrorUsers(null);
-    if (!token) { setErrorUsers('Token manquant'); setIsLoadingUsers(false); return; }
-    try {
-      // Demande une limite élevée pour obtenir tous les étudiants pour le select.
-      // Ajustez la limite si nécessaire ou implémentez une recherche/pagination pour le select si la liste est très grande.
-      const response = await fetch(`${API_BASE_URL}/etudiants?limit=1000`, { 
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      if (data.success && data.data && Array.isArray(data.data.etudiants)) {
-        // Assurez-vous que les champs id, email, nom, prenom existent
-        setUsers(data.data.etudiants.map((u: any) => ({
-          id: u.id,
-          email: u.email || 'N/A', // Fournir une valeur par défaut si email peut être null
-          nom: u.nom || '',
-          prenom: u.prenom || ''
-        })));
-      } else {
-        throw new Error(data.message || 'Failed to fetch users');
-      }
-    } catch (err) {
-      setErrorUsers(err instanceof Error ? err.message : String(err));
-      console.error("Error fetching users:", err);
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }, []);
-
   useEffect(() => {
-    const token = localStorage.getItem('token'); // Récupérer le token
+    const token = localStorage.getItem('token');
     fetchNotificationsHistory(token);
-    fetchUsers(token); // Appeler fetchUsers
-  }, [fetchNotificationsHistory, fetchUsers]); // Ajout de fetchUsers aux dépendances
+  }, [fetchNotificationsHistory]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // Debounce search function
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    setErrorUsers(null);
+    const token = localStorage.getItem('token');
+    if (!token) {
+        setErrorUsers('Token manquant');
+        setIsSearching(false);
+        return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/etudiants/search?term=${encodeURIComponent(searchTerm)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          setSearchResults(data.data.map((u: any) => ({
+            id: u.id,
+            email: u.email || 'N/A',
+            matricule: u.matricule || 'N/A', 
+            nom: u.nom || '',
+            prenom: u.prenom || ''
+          })));
+        } else {
+          throw new Error(data.message || 'Failed to search users');
+        }
+      } catch (err) {
+        setErrorUsers(err instanceof Error ? err.message : String(err));
+        setSearchResults([]); // Vider les résultats en cas d'erreur
+        console.error("Error searching users:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500); // Délai de 500ms
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, API_BASE_URL]);
+
+  const handleUserSelect = (user: User) => {
     setNewNotification(prev => ({
       ...prev,
-      [name]: name === 'utilisateur_id' ? (value ? parseInt(value, 10) : null) : value
+      destinataire: {
+        type: 'etudiant',
+        id: user.id
+      }
     }));
+    setSearchTerm(`${user.prenom} ${user.nom} (${user.matricule || user.email})`);
+    setSearchResults([]);
+    setRecipientType('etudiant'); // S'assurer que le type est 'etudiant' quand on sélectionne un user
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    if (name === 'titre' || name === 'message') {
+      setNewNotification(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    } else if (name === 'recipientTypeSelector') {
+      const newType = value as 'etudiant' | 'filiere' | 'tous';
+      setRecipientType(newType);
+      setNewNotification(prev => ({
+        ...prev,
+        destinataire: {
+          type: newType,
+          // Réinitialiser l'id si on change de type, sauf si on revient à étudiant et un user était déjà cherché
+          // (le searchTerm contient l'info de l'étudiant recherché si c'est le cas)
+          id: newType === 'etudiant' && prev.destinataire.type === 'etudiant' ? prev.destinataire.id : null 
+        }
+      }));
+      setSelectedFiliereId(null); // Réinitialiser la filière si on change de type
+      if (newType !== 'etudiant') {
+          setSearchTerm(''); // Vider la recherche d'étudiant si on n'est plus en mode étudiant
+          setSearchResults([]);
+      }
+    } else if (name === 'filiereSelector') {
+      const filiereId = value ? parseInt(value, 10) : null;
+      setSelectedFiliereId(filiereId);
+      setNewNotification(prev => ({
+        ...prev,
+        destinataire: {
+          type: 'filiere',
+          id: filiereId
+        }
+      }));
+    }
   };
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (!newNotification.utilisateur_id) {
-      setFormError("Veuillez sélectionner un destinataire.");
+
+    const { destinataire, titre, message } = newNotification;
+
+    if (!titre.trim()) {
+      setFormError("Veuillez entrer un titre pour la notification.");
       return;
     }
-    if (!newNotification.message.trim()) {
+    if (!message.trim()) {
       setFormError("Veuillez écrire un message pour la notification.");
       return;
     }
 
-    setIsLoading(true);
-    const token = localStorage.getItem('token'); // Récupérer le token
-    if (!token) { setFormError('Non authentifié'); setIsLoading(false); return; }
-    try {
-      const payload: { utilisateur_id: number; message: string } = {
-        utilisateur_id: newNotification.utilisateur_id, 
-        message: newNotification.message,
-      }; 
+    if (destinataire.type === 'etudiant' && !destinataire.id) {
+      setFormError("Veuillez sélectionner un étudiant destinataire.");
+      return;
+    }
+    if (destinataire.type === 'filiere' && !destinataire.id) {
+      setFormError("Veuillez sélectionner une filière destinataire.");
+      return;
+    }
 
+    setIsLoading(true);
+    const token = localStorage.getItem('token');
+    if (!token) { setFormError('Non authentifié'); setIsLoading(false); return; }
+    
+    try {
+      // Le payload est maintenant directement newNotification
       const response = await fetch(`${API_BASE_URL}/notifications`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, // Ajout du token
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newNotification),
       });
       const result = await response.json();
 
@@ -143,12 +242,20 @@ const AdminNotificationsTab: React.FC = () => {
         throw new Error(result.message || 'Error sending notification');
       }
       
-      alert('Notification envoyée avec succès!');
-      setNewNotification({ utilisateur_id: null, message: '' }); // Reset form
+      alert(result.message || 'Notification(s) envoyée(s) avec succès!'); // Utiliser le message du backend
+      // Reset form
+      setNewNotification({
+        destinataire: { type: 'etudiant', id: null },
+        titre: '',
+        message: ''
+      });
+      setSearchTerm('');
+      setSearchResults([]);
+      setRecipientType('etudiant');
+      setSelectedFiliereId(null);
       fetchNotificationsHistory(token); // Re-fetch history
     } catch (err) {
       setFormError(err instanceof Error ? err.message : String(err));
-      // alert(`Erreur: ${err instanceof Error ? err.message : String(err)}`); // Peut-être redondant si formError est affiché
       console.error("Error sending notification:", err);
     } finally {
       setIsLoading(false);
@@ -161,24 +268,94 @@ const AdminNotificationsTab: React.FC = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-6">Envoyer une nouvelle notification</h3>
         <form onSubmit={handleSendNotification} className="space-y-5">
           <div>
-            <label htmlFor="utilisateur_id" className="block text-sm font-medium text-gray-700 mb-1">Destinataire</label>
+            <label htmlFor="recipientTypeSelector" className="block text-sm font-medium text-gray-700 mb-1">Type de Destinataire</label>
             <select 
-              id="utilisateur_id" 
-              name="utilisateur_id"
-              value={newNotification.utilisateur_id === null ? '' : newNotification.utilisateur_id}
+              id="recipientTypeSelector" 
+              name="recipientTypeSelector"
+              value={recipientType}
               onChange={handleInputChange}
               className="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-              required
             >
-              <option value="">Sélectionner un utilisateur</option>
-              {isLoadingUsers ? <option disabled>Chargement des utilisateurs...</option> :
-               errorUsers ? <option disabled>Erreur chargement utilisateurs</option> :
-               users.length === 0 ? <option disabled>Aucun utilisateur trouvé</option> : 
-               users.map(user => (
-                <option key={user.id} value={user.id}>{user.prenom} {user.nom} ({user.email})</option>
-              ))}
+              <option value="etudiant">Étudiant spécifique</option>
+              <option value="filiere">Filière</option>
+              <option value="tous">Tous les étudiants</option>
             </select>
           </div>
+
+          {recipientType === 'etudiant' && (
+            <div>
+              <label htmlFor="utilisateur_search" className="block text-sm font-medium text-gray-700 mb-1">Rechercher un étudiant (par nom, prénom, matricule)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  id="utilisateur_search"
+                  name="utilisateur_search"
+                  value={searchTerm}
+                  onChange={handleSearchChange} // Modifié ici pour utiliser handleSearchChange au lieu de handleInputChange
+                  className="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+                  placeholder="Entrez nom, prénom ou matricule..."
+                  autoComplete="off"
+                  disabled={recipientType !== 'etudiant'} // Désactiver si pas le bon type
+                />
+                {isSearching && <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">Recherche...</div>}
+                {searchResults.length > 0 && (
+                  <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-auto shadow-lg">
+                    {searchResults.map(user => (
+                      <li 
+                        key={user.id} 
+                        onClick={() => handleUserSelect(user)}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
+                      >
+                        {user.prenom} {user.nom} ({user.matricule || user.email})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {errorUsers && <p className="text-sm text-red-500 mt-1">{errorUsers}</p>}
+              </div>
+              {newNotification.destinataire.type === 'etudiant' && newNotification.destinataire.id && (
+                <p className="text-xs text-gray-500 mt-1">ID Utilisateur sélectionné: {newNotification.destinataire.id}</p>
+              )}
+            </div>
+          )}
+
+          {recipientType === 'filiere' && (
+            <div>
+              <label htmlFor="filiereSelector" className="block text-sm font-medium text-gray-700 mb-1">Sélectionner une Filière</label>
+              <select 
+                id="filiereSelector" 
+                name="filiereSelector"
+                value={selectedFiliereId || ''}
+                onChange={handleInputChange}
+                className="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+                disabled={recipientType !== 'filiere'} // Désactiver si pas le bon type
+              >
+                <option value="">-- Sélectionner une filière --</option>
+                {filieres.map(filiere => (
+                  <option key={filiere.id} value={filiere.id}>{filiere.nom}</option>
+                ))}
+              </select>
+              {newNotification.destinataire.type === 'filiere' && newNotification.destinataire.id && (
+                <p className="text-xs text-gray-500 mt-1">ID Filière sélectionnée: {newNotification.destinataire.id}</p>
+              )}
+            </div>
+          )}
+          
+          {/* Champ Titre toujours visible */}
+          <div>
+            <label htmlFor="titre" className="block text-sm font-medium text-gray-700 mb-1">Titre de la notification</label>
+            <input 
+              type="text"
+              id="titre" 
+              name="titre"
+              value={newNotification.titre}
+              onChange={handleInputChange}
+              className="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+              placeholder="Entrez le titre de la notification..."
+              required
+            />
+          </div>
+
           <div>
             <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Contenu du message</label>
             <textarea 

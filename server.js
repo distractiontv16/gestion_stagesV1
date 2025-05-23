@@ -108,6 +108,12 @@ const setupRoutes = async () => {
     const projetsPublicsRoutes = await import('./src/routes/projetsPublics.js');
     app.use('/api', projetsPublicsRoutes.default);
     console.log('Routes projetsPublics chargées avec succès');
+
+    // Routes for notifications
+    console.log('Chargement des routes notifications...');
+    const notificationsRoutes = await import('./src/routes/notifications.js');
+    app.use('/api/notifications', notificationsRoutes.default);
+    console.log('Routes notifications chargées avec succès');
     
     // Import the auth middleware
     console.log('Chargement du middleware auth...');

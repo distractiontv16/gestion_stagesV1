@@ -5,7 +5,13 @@ import * as ParametresController from '../controllers/ParametresController.js';
 import * as EtudiantsController from '../controllers/EtudiantsController.js';
 import * as PropositionsController from '../controllers/PropositionsController.js';
 import * as NotificationsController from '../controllers/NotificationsController.js';
-import * as ProjetsRealisesController from '../controllers/ProjetsRealisesController.js';
+import {
+  getProjetsRealises,
+  createProjetRealise,
+  getProjetRealiseById,
+  updateProjetRealise,
+  deleteProjetRealise
+} from '../controllers/ProjetsRealisesController.js';
 import * as PropositionsThemesController from '../controllers/PropositionsThemesController.js';
 import db from '../config/db.js';
 const { query: pool } = db;
@@ -32,6 +38,7 @@ router.put('/parametres/systeme/:nom', ParametresController.updateParametreSyste
 router.get('/etudiants', EtudiantsController.getEtudiants);
 router.get('/etudiants/:id', EtudiantsController.getEtudiantParId);
 router.get('/etudiants/statistiques', EtudiantsController.getStatistiquesEtudiants);
+router.get('/etudiants/search', EtudiantsController.searchEtudiants);
 
 // Routes pour les propositions de stage
 router.get('/propositions', PropositionsController.getPropositions);
@@ -40,15 +47,15 @@ router.put('/propositions/:id', PropositionsController.updateProposition);
 router.delete('/propositions/:id', PropositionsController.deleteProposition);
 
 // Routes pour les notifications (ADMIN)
-router.get('/notifications', NotificationsController.getNotifications);
+router.get('/notifications', NotificationsController.getAllNotificationsForAdmin);
 router.post('/notifications', NotificationsController.createNotification);
 
 // Routes pour les Projets Réalisés (ADMIN)
-router.get('/projets-realises', ProjetsRealisesController.getProjetsRealises);
-router.post('/projets-realises', ProjetsRealisesController.createProjetRealise);
-router.get('/projets-realises/:id', ProjetsRealisesController.getProjetRealiseById);
-router.put('/projets-realises/:id', ProjetsRealisesController.updateProjetRealise);
-router.delete('/projets-realises/:id', ProjetsRealisesController.deleteProjetRealise);
+router.get('/projets-realises', getProjetsRealises);
+router.post('/projets-realises', createProjetRealise);
+router.get('/projets-realises/:id', getProjetRealiseById);
+router.put('/projets-realises/:id', updateProjetRealise);
+router.delete('/projets-realises/:id', deleteProjetRealise);
 
 // Routes pour les Propositions de Thèmes (ADMIN)
 router.get('/propositions-themes', PropositionsThemesController.getPropositionsThemes);

@@ -258,4 +258,57 @@ export const getStatistiquesEtudiants = async (req, res) => {
       error: error.message || 'Erreur inconnue'
     });
   }
+};
+
+/**
+ * Recherche des étudiants par nom, prénom ou matricule
+ */
+export const searchEtudiants = async (req, res) => {
+  const { term } = req.query;
+  debug('Appel API: searchEtudiants avec le terme:', term);
+
+  if (!term || term.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: 'Le terme de recherche ne peut pas être vide.'
+    });
+  }
+
+  try {
+    const searchTerm = `%${term}%`;
+    const sqlQuery = `
+      SELECT 
+        u.id, 
+        u.matricule, 
+        u.nom, 
+        u.prenom,
+        f.nom as filiere
+      FROM 
+        utilisateurs u
+      LEFT JOIN 
+        filieres f ON u.filiere_id = f.id
+      WHERE 
+        u.role = 'etudiant' AND 
+        (u.nom ILIKE $1 OR u.prenom ILIKE $1 OR u.matricule ILIKE $1)
+      ORDER BY u.nom, u.prenom
+      LIMIT 10; // Limiter les résultats pour la recherche rapide
+    `;
+    
+    debug('Query SQL (searchEtudiants):', sqlQuery, [searchTerm]);
+    const { rows: etudiants } = await query(sqlQuery, [searchTerm]);
+    debug('Résultat requête searchEtudiants:', etudiants);
+
+    return res.status(200).json({
+      success: true,
+      data: etudiants
+    });
+  } catch (error) {
+    debug('ERREUR searchEtudiants:', error);
+    console.error('Erreur lors de la recherche des étudiants:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la recherche des étudiants',
+      error: error.message || 'Erreur inconnue'
+    });
+  }
 }; 

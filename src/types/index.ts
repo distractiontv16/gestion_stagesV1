@@ -59,6 +59,14 @@ export interface PropositionTheme {
   date_soumission?: string;
 }
 
+export interface Notification {
+  id: number;
+  titre: string;
+  message: string;
+  lue: boolean;
+  created_at: string;
+}
+
 export interface StageFormData {
   // Onglet 1: Informations sur l'Entreprise
   departement: string;

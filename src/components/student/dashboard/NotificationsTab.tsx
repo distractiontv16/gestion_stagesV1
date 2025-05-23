@@ -1,43 +1,90 @@
-interface Notification {
-  id: string; // ou number, selon votre structure
-  title: string;
-  message: string;
-  date: string;
-  read?: boolean; // Optionnel: pour marquer une notification comme lue
-}
+import React, { useState, useEffect } from 'react';
+import { Notification } from '@/types'; // Importer depuis les types globaux
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-// Données fictives pour les notifications (à remplacer par des données réelles)
-const dummyNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Date limite de soumission des fiches de stage',
-    message: 'N\'oubliez pas de soumettre vos informations de stage avant le 30 juin. Passé ce délai, aucune soumission ne sera acceptée.',
-    date: 'Il y a 2 jours',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Bienvenue sur la plateforme INSTI Stages',
-    message: 'Nous sommes ravis de vous accueillir ! Explorez les fonctionnalités et trouvez le stage de vos rêves.',
-    date: 'Il y a 1 semaine',
-    read: true,
-  },
-  {
-    id: '3',
-    title: 'Nouvelle offre de stage disponible',
-    message: 'Une nouvelle offre de stage en Développement Web chez TechSolutions vient d\'être publiée. Consultez l\'onglet "Trouver un stage".',
-    date: 'Il y a 3 jours',
-    read: false,
-  },
-];
+// Helper pour formater la date relative
+const formatDateRelativeToNow = (dateString: string) => {
+  try {
+    const date = parseISO(dateString);
+    return formatDistanceToNow(date, { addSuffix: true, locale: fr });
+  } catch (error) {
+    console.error("Erreur de formatage de date pour notification:", dateString, error);
+    return "Date invalide";
+  }
+};
 
 const NotificationsTab = () => {
-  // Idéalement, les notifications viendraient des props ou d'un état global/contexte
-  const notifications = dummyNotifications;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchNotifications = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // Gérer l'absence de token, peut-être rediriger vers login ou afficher une erreur spécifique
+        throw new Error("Utilisateur non authentifié");
+      }
+      const response = await fetch('/api/notifications', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erreur lors de la récupération des notifications" }));
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.success) {
+        setNotifications(result.data || []);
+      } else {
+        throw new Error(result.message || "Échec de la récupération des notifications (success false)");
+      }
+    } catch (err) {
+      console.error("Erreur fetchNotifications:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // TODO: Implémenter la logique pour marquer les notifications comme lues (individuellement ou toutes)
+  // const handleMarkAsRead = async (id: number) => { ... appel API PUT /api/notifications/:id/read ... puis fetchNotifications() }
+  // const handleMarkAllAsRead = async () => { ... appel API PUT /api/notifications/read-all ... puis fetchNotifications() }
+
+  if (isLoading) {
+    return (
+      <div className="py-8 flex justify-center">
+        <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+        <p className="ml-3 text-gray-600">Chargement des notifications...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="text-center text-red-500 py-10">Erreur: {error}</p>;
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-gray-800">Notifications</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold text-gray-800">Notifications</h2>
+        {/* Bouton pour marquer tout comme lu (à implémenter) */}
+        {notifications.some(n => !n.lue) && (
+          <button 
+            // onClick={handleMarkAllAsRead} 
+            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            // disabled={isLoading} // Pour éviter double-clic
+          >
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
 
       {notifications.length > 0 ? (
         <div className="space-y-4">
@@ -45,24 +92,31 @@ const NotificationsTab = () => {
             <div 
               key={notif.id} 
               className={`p-5 rounded-lg border-l-4 shadow-sm transition-all duration-200 ease-in-out ${
-                notif.read ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-blue-500 hover:shadow-md'
+                notif.lue ? 'bg-gray-50 border-gray-300 opacity-70' : 'bg-blue-50 border-blue-500 hover:shadow-md'
               }`}
             >
               <div className="flex justify-between items-start">
                 <h3 className={`text-md font-semibold ${
-                  notif.read ? 'text-gray-700' : 'text-blue-700'
-                }`}>{notif.title}</h3>
-                {!notif.read && (
-                  <span className="px-2 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full">Nouveau</span>
+                  notif.lue ? 'text-gray-700' : 'text-blue-700'
+                }`}>{notif.titre}</h3> {/* Utilisation du champ titre */} 
+                {!notif.lue && (
+                  <button 
+                    // onClick={() => handleMarkAsRead(notif.id)}
+                    className="text-xs text-blue-500 hover:underline"
+                  >
+                    Marquer comme lu
+                  </button>
+                  // Ou simplement un badge "Nouveau"
+                  // <span className="px-2 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full">Nouveau</span>
                 )}
               </div>
               <p className={`mt-1 text-sm ${
-                notif.read ? 'text-gray-600' : 'text-gray-700'
+                notif.lue ? 'text-gray-600' : 'text-gray-700'
               }`}>
                 {notif.message}
               </p>
               <p className="mt-2 text-xs text-gray-500">
-                {notif.date}
+                {formatDateRelativeToNow(notif.created_at)} {/* Utilisation de created_at pour la date relative */}
               </p>
             </div>
           ))}
@@ -74,7 +128,7 @@ const NotificationsTab = () => {
           </svg>
           <h3 className="mt-2 text-lg font-medium text-gray-900">Aucune notification</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Vous n'avez aucune nouvelle notification pour le moment.
+            Vous n\'avez aucune nouvelle notification pour le moment.
           </p>
         </div>
       )}

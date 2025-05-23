@@ -43,7 +43,7 @@ export const getPropositions = async (req, res) => {
         p.statut,
         p.date_publication,
         p.updated_at,
-        f.nom_filiere, -- Supposant que vous avez une table filieres avec nom_filiere
+        f.nom as nom_filiere,
         e.nom as nom_entreprise_table -- Nom de l'entreprise depuis la table entreprises
       FROM 
         propositions_stages p

@@ -1,9 +1,10 @@
-import pool from '../config/db.js'; // Assurez-vous que le chemin vers db.js est correct
+import db from '../config/db.js';
+const { query } = db;
 
 // Get all proposition_themes
 export const getPropositionsThemes = async (req, res) => {
     try {
-        const result = await pool.query(
+        const result = await query(
             `SELECT pt.*, f.nom AS nom_filiere 
              FROM proposition_themes pt
              LEFT JOIN filieres f ON pt.filiere_id = f.id
@@ -20,7 +21,7 @@ export const getPropositionsThemes = async (req, res) => {
 export const getPropositionThemeById = async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query(
+        const result = await query(
             `SELECT pt.*, f.nom AS nom_filiere 
              FROM proposition_themes pt
              LEFT JOIN filieres f ON pt.filiere_id = f.id
@@ -59,7 +60,7 @@ export const createPropositionTheme = async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
+        const result = await query(
             `INSERT INTO proposition_themes 
              (titre, description, auteur_nom, auteur_type, filiere_id, entreprise_nom, email_contact, difficulte, technologies_suggerees, objectifs_pedagogiques, est_validee, statut, date_soumission) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
@@ -96,7 +97,7 @@ export const updatePropositionTheme = async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
+        const result = await query(
             `UPDATE proposition_themes 
              SET titre = $1, description = $2, auteur_nom = $3, auteur_type = $4, filiere_id = $5, 
                  entreprise_nom = $6, email_contact = $7, difficulte = $8, technologies_suggerees = $9, 
@@ -119,7 +120,7 @@ export const updatePropositionTheme = async (req, res) => {
 export const deletePropositionTheme = async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query("DELETE FROM proposition_themes WHERE id = $1 RETURNING *", [id]);
+        const result = await query("DELETE FROM proposition_themes WHERE id = $1 RETURNING *", [id]);
         if (result.rowCount === 0) {
             return res.status(404).json({ message: "Proposition de thème non trouvée pour la suppression." });
         }

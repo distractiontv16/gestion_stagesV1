@@ -1,29 +1,43 @@
 import db from '../config/db.js';
 const { query } = db;
 
+// Fonction utilitaire pour le log de débogage
+const debug = (message, data = null) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[DEBUG][NotificationsController][${timestamp}] ${message}`);
+  if (data) {
+    console.log(JSON.stringify(data, null, 2));
+  }
+};
+
 /**
- * Récupère la liste des notifications pour l'administrateur
- * Potentiellement toutes les notifications ou celles envoyées par l'admin,
- * ou à destination d'utilisateurs spécifiques.
- * Pour l'instant, récupère toutes les notifications.
+ * Récupère la liste des notifications pour l'utilisateur actuellement connecté.
  */
-export const getNotifications = async (req, res) => {
+export const getNotificationsForUser = async (req, res) => {
   try {
-    // TODO: Ajouter la pagination si nécessaire
+    const utilisateurId = req.user?.id; // Supposant que req.user.id est disponible via le middleware d'auth
+
+    if (!utilisateurId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non authentifié'
+      });
+    }
+
     const { rows: notifications } = await query(
       `SELECT 
-        n.id,
-        n.utilisateur_id,
-        u.email as utilisateur_email, // Ou u.nom, selon votre table utilisateurs
-        n.message,
-        n.lue,
-        n.created_at
+        id,
+        titre, -- Ajout de la colonne titre
+        message,
+        lue,
+        created_at
       FROM 
-        notifications n
-      LEFT JOIN
-        utilisateurs u ON n.utilisateur_id = u.id
+        notifications
+      WHERE 
+        utilisateur_id = $1
       ORDER BY 
-        n.created_at DESC`
+        created_at DESC`,
+      [utilisateurId]
     );
     
     res.status(200).json({
@@ -31,7 +45,7 @@ export const getNotifications = async (req, res) => {
       data: notifications
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération des notifications:', error);
+    console.error('Erreur lors de la récupération des notifications pour l\'utilisateur:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des notifications',
@@ -41,46 +55,222 @@ export const getNotifications = async (req, res) => {
 };
 
 /**
- * Crée (envoie) une nouvelle notification
+ * Crée (envoie) une nouvelle notification ou des notifications en masse.
  */
 export const createNotification = async (req, res) => {
-  const { utilisateur_id, message } = req.body;
-  
-  if (!utilisateur_id || !message) {
+  const { destinataire, titre, message } = req.body;
+  debug('Appel API: createNotification', { destinataire, titre, message });
+
+  if (!destinataire || !destinataire.type || !message || !titre) {
+    debug('Validation échouée: champs manquants', { destinataire, titre, message });
     return res.status(400).json({
       success: false,
-      message: 'L\'utilisateur_id et le message sont requis'
+      message: 'Le type de destinataire, le titre et le message sont requis.'
     });
   }
-  
-  try {
-    const { rows: result } = await query(
-      `INSERT INTO notifications (utilisateur_id, message) 
-       VALUES ($1, $2)
-       RETURNING id, created_at`,
-      [utilisateur_id, message]
-    );
-    
-    const newNotification = result[0];
 
-    // TODO: Potentiellement, enregistrer une activité récente pour l'envoi de notification
-    // await query(
-    //   `INSERT INTO activites_recentes (type_activite, type, description, valeur, date_activite, user_id) 
-    //    VALUES ($1, $2, $3, $4, NOW(), $5)`,
-    //   ['notification_envoyee', 'creation', \`Notification envoyée à l'utilisateur ID ${utilisateur_id}\`, newNotification.id, req.user?.id || null]
-    // );
-    
-    res.status(201).json({
-      success: true,
-      message: 'Notification créée avec succès',
-      data: newNotification
-    });
+  const { type, id: destinataireId } = destinataire; // destinataireId peut être utilisateur_id ou filiere_id
+
+  try {
+    let userIdsToNotify = [];
+
+    if (type === 'etudiant') {
+      if (!destinataireId) {
+        debug('Validation échouée: utilisateur_id manquant pour type etudiant');
+        return res.status(400).json({ success: false, message: 'L\'utilisateur_id est requis pour le type "etudiant".' });
+      }
+      userIdsToNotify.push(destinataireId);
+      debug('Notification pour étudiant spécifique', { userId: destinataireId });
+    } else if (type === 'filiere') {
+      if (!destinataireId) {
+        debug('Validation échouée: filiere_id manquant pour type filiere');
+        return res.status(400).json({ success: false, message: 'Le filiere_id est requis pour le type "filiere".' });
+      }
+      debug('Notification pour filière', { filiereId: destinataireId });
+      const { rows: usersInFiliere } = await query(
+        "SELECT id FROM utilisateurs WHERE role = 'etudiant' AND filiere_id = $1",
+        [destinataireId]
+      );
+      userIdsToNotify = usersInFiliere.map(user => user.id);
+      debug('Utilisateurs dans la filière', { userIdsToNotify });
+      if (userIdsToNotify.length === 0) {
+        debug('Aucun étudiant trouvé pour cette filière', { filiereId: destinataireId });
+        return res.status(404).json({ success: false, message: 'Aucun étudiant trouvé pour cette filière.' });
+      }
+    } else if (type === 'tous') {
+      debug('Notification pour tous les étudiants');
+      const { rows: allEtudiants } = await query(
+        "SELECT id FROM utilisateurs WHERE role = 'etudiant'"
+      );
+      userIdsToNotify = allEtudiants.map(user => user.id);
+      debug('Tous les étudiants', { userIdsToNotify });
+      if (userIdsToNotify.length === 0) {
+        debug('Aucun étudiant trouvé');
+        return res.status(404).json({ success: false, message: 'Aucun étudiant trouvé.' });
+      }
+    } else {
+      debug('Validation échouée: type de destinataire invalide', { type });
+      return res.status(400).json({ success: false, message: 'Type de destinataire invalide.' });
+    }
+
+    if (userIdsToNotify.length === 0) {
+        debug('Aucun utilisateur à notifier après filtrage.');
+        // Message déjà envoyé si la recherche ne donnait rien, mais pour être sûr.
+        return res.status(404).json({ success: false, message: 'Aucun destinataire trouvé pour cette notification.' });
+    }
+
+    // Utilisation d'une transaction pour insérer toutes les notifications
+    // Cela garantit que soit toutes les notifications sont créées, soit aucune ne l'est.
+    const client = await db.getClient(); // Obtenir un client du pool
+    try {
+      await client.query('BEGIN');
+      debug('Transaction commencée');
+
+      const insertPromises = userIdsToNotify.map(userId => {
+        return client.query(
+          `INSERT INTO notifications (utilisateur_id, titre, message) 
+           VALUES ($1, $2, $3)
+           RETURNING id`, // On ne retourne que l'id pour ne pas surcharger la réponse en cas de masse
+          [userId, titre, message]
+        );
+      });
+      
+      const results = await Promise.all(insertPromises);
+      const createdCount = results.reduce((count, result) => count + result.rowCount, 0);
+
+      await client.query('COMMIT');
+      debug('Transaction commitée', { createdCount });
+      
+      res.status(201).json({
+        success: true,
+        message: `${createdCount} notification(s) créée(s) avec succès.`,
+        data: {
+          count: createdCount,
+          // On ne retourne pas toutes les notifications pour éviter une réponse trop volumineuse
+        }
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      debug('Transaction annulée (ROLLBACK)', { error: error.message });
+      console.error('Erreur lors de la création de notifications en masse (transaction):', error);
+      throw error; // Relance l'erreur pour être capturée par le catch externe
+    } finally {
+      client.release(); // Toujours libérer le client
+      debug('Client de base de données libéré');
+    }
+
   } catch (error) {
+    debug('Erreur globale dans createNotification', { error: error.message, stack: error.stack });
     console.error('Erreur lors de la création de la notification:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la création de la notification',
       error: error.message
     });
+  }
+};
+
+/**
+ * Marque une notification comme lue pour l'utilisateur connecté
+ */
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    const utilisateurId = req.user?.id;
+    const notificationId = req.params.id;
+
+    if (!utilisateurId) {
+      return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+    }
+    if (!notificationId) {
+      return res.status(400).json({ success: false, message: 'ID de notification manquant' });
+    }
+
+    const { rowCount } = await query(
+      'UPDATE notifications SET lue = TRUE WHERE id = $1 AND utilisateur_id = $2',
+      [notificationId, utilisateurId]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Notification non trouvée ou non autorisée' });
+    }
+
+    res.status(200).json({ success: true, message: 'Notification marquée comme lue' });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de la notification:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+};
+
+/**
+ * Récupère toutes les notifications pour la vue admin (avec infos utilisateur)
+ */
+export const getAllNotificationsForAdmin = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query; // Ajout de pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const notificationsQuery = `
+      SELECT 
+        n.id,
+        n.titre,
+        n.message,
+        n.lue,
+        n.created_at,
+        u.id AS utilisateur_id,
+        u.nom AS utilisateur_nom,
+        u.prenom AS utilisateur_prenom,
+        u.matricule AS utilisateur_matricule
+      FROM 
+        notifications n
+      JOIN 
+        utilisateurs u ON n.utilisateur_id = u.id
+      ORDER BY 
+        n.created_at DESC
+      LIMIT $1 OFFSET $2;
+    `;
+
+    const countQuery = `SELECT COUNT(*) FROM notifications;`;
+
+    const { rows: notifications } = await query(notificationsQuery, [parseInt(limit), offset]);
+    const { rows: totalResult } = await query(countQuery);
+    const totalNotifications = parseInt(totalResult[0].count, 10);
+
+    res.status(200).json({
+      success: true,
+      data: notifications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalNotifications,
+        totalPages: Math.ceil(totalNotifications / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de toutes les notifications pour l\'admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des notifications pour l\'admin',
+      error: error.message
+    });
+  }
+};
+
+// Optionnel: Marquer toutes les notifications comme lues pour l'utilisateur
+export const markAllNotificationsAsRead = async (req, res) => {
+  try {
+    const utilisateurId = req.user?.id;
+    if (!utilisateurId) {
+      return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+    }
+
+    await query(
+      'UPDATE notifications SET lue = TRUE WHERE utilisateur_id = $1 AND lue = FALSE',
+      [utilisateurId]
+    );
+    res.status(200).json({ success: true, message: 'Toutes les notifications ont été marquées comme lues' });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de toutes les notifications:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
   }
 }; 

@@ -135,6 +135,21 @@ const setupRoutes = async () => {
     console.error('Error loading routes:', error);
   }
   
+  // Servir les fichiers statiques du frontend React (après le build)
+  // Assurez-vous que __dirname est correctement défini si vous utilisez ES Modules
+  // import path from 'path';
+  // import { fileURLToPath } from 'url';
+  // const __filename = fileURLToPath(import.meta.url);
+  // const __dirname = path.dirname(__filename);
+  
+  if (process.env.NODE_ENV === 'production') { 
+    app.use(express.static(path.join(__dirname, 'dist')));
+  
+    app.get('/*', (req, res) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    });
+  }
+
   // Error handling middleware
   app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
     console.error('Server error:', err);

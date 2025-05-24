@@ -39,14 +39,14 @@ router.post('/register', [
 
     // Check if user already exists with matricule
     const { rows: existingUsers } = await query(
-      'SELECT * FROM utilisateurs WHERE matricule = $1', 
+      'SELECT * FROM public.utilisateurs WHERE matricule = $1', 
       [matricule]
     );
     
     // Vérifie l'email seulement si il est fourni
     if (email && email.trim() !== '') {
       const { rows: existingEmails } = await query(
-        'SELECT * FROM utilisateurs WHERE email = $2', 
+        'SELECT * FROM public.utilisateurs WHERE email = $2', 
         [email]
       );
       
@@ -69,7 +69,7 @@ router.post('/register', [
 
     // Insert user
     const { rows: result } = await query(
-      'INSERT INTO utilisateurs (nom, prenom, telephone, email, matricule, filiere_id, mot_de_passe, whatsapp) VALUES ($3, $4, $5, $6, $7, $8, $9, $10)',
+      'INSERT INTO public.utilisateurs (nom, prenom, telephone, email, matricule, filiere_id, mot_de_passe, whatsapp) VALUES ($3, $4, $5, $6, $7, $8, $9, $10)',
       [nom, prenom, telephone, email || null, matricule, filiere_id, hashedPassword, whatsapp || null]
     );
 
@@ -128,9 +128,13 @@ router.post('/login', async (req, res) => {
     console.log('[auth.js login] Type de query (avant appel):', typeof query);
     // Fin des LOGS AJOUTÉS
 
+    // Test direct pour voir si on peut lire depuis public.utilisateurs
+    const testResult = await db.query('SELECT COUNT(*) FROM public.utilisateurs');
+    console.log('Test - Nombre d\'utilisateurs (public.utilisateurs):', testResult.rows[0].count);
+
     // Find user
     const { rows: users } = await query(
-      'SELECT * FROM utilisateurs WHERE matricule = $1', 
+      'SELECT * FROM public.utilisateurs WHERE matricule = $1', 
       [cleanMatricule]
     );
 
@@ -215,7 +219,7 @@ router.post('/admin/login', async (req, res) => {
     // Find admin
     console.log('Recherche dans la table administrateurs...');
     const { rows: admins } = await query(
-      'SELECT * FROM administrateurs WHERE matricule = $1', 
+      'SELECT * FROM public.administrateurs WHERE matricule = $1', 
       [cleanMatricule]
     );
 
@@ -227,7 +231,7 @@ router.post('/admin/login', async (req, res) => {
       // Essayer de trouver dans la table utilisateurs avec rôle admin
       console.log('Recherche dans la table utilisateurs avec rôle admin...');
       const { rows: adminUsers } = await query(
-        'SELECT * FROM utilisateurs WHERE matricule = $1 AND role = $2', 
+        'SELECT * FROM public.utilisateurs WHERE matricule = $1 AND role = $2', 
         [cleanMatricule, 'admin']
       );
       
@@ -327,7 +331,7 @@ router.get('/me', protect, async (req, res) => {
     if (req.user.role === 'admin') {
       console.log('Admin détecté, recherche dans la table administrateurs avec matricule:', req.user.matricule);
       const { rows: admins } = await query(
-        'SELECT id, matricule FROM administrateurs WHERE matricule = $1', 
+        'SELECT id, matricule FROM public.administrateurs WHERE matricule = $1', 
         [req.user.matricule]
       );
       
@@ -350,7 +354,7 @@ router.get('/me', protect, async (req, res) => {
     if (req.user.id) {
       console.log('Recherche utilisateur avec ID:', req.user.id);
       const { rows: users } = await query(
-        'SELECT id, nom, prenom, email, matricule, telephone, filiere_id, role FROM utilisateurs WHERE id = $1',
+        'SELECT id, nom, prenom, email, matricule, telephone, filiere_id, role FROM public.utilisateurs WHERE id = $1',
         [req.user.id]
       );
 

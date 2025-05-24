@@ -4,13 +4,13 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Récupération de l'URL de la base de données depuis les variables d'environnement
+const connectionString = process.env.DATABASE_URL;
+
 // Configuration de la piscine de connexion PostgreSQL
 const pool = new pg.Pool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'gestion_stages',
-  port: process.env.DB_PORT || 5432,
+  connectionString: connectionString,
+  ssl: connectionString ? { rejectUnauthorized: false } : false, // Nécessaire pour Neon et autres DBaaS qui utilisent SSL
   max: 10, // Nombre maximum de connexions
   idleTimeoutMillis: 30000 // Délai avant de fermer une connexion inactive
 });

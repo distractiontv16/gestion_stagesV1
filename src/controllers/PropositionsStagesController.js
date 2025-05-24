@@ -18,7 +18,7 @@ export const getPropositionsStages = async (req, res) => {
         date_publication, 
         statut, 
         entreprise_id
-      FROM propositions_stages
+      FROM public.propositions_stages
       ORDER BY date_publication DESC, created_at DESC;
     `;
     const { rows } = await pool.query(query);

@@ -41,7 +41,7 @@ export const protect = async (req, res, next) => {
         
         // Get admin from database (cas standard)
         const { rows: admins } = await query(
-          'SELECT id, matricule FROM administrateurs WHERE id = $1',
+          'SELECT id, matricule FROM public.administrateurs WHERE id = $1',
           [decoded.id]
         );
         
@@ -50,7 +50,7 @@ export const protect = async (req, res, next) => {
         if (admins.length === 0) {
           // Essayer de chercher l'admin dans la table utilisateurs
           const { rows: users } = await query(
-            'SELECT id, nom, prenom, email, matricule, role FROM utilisateurs WHERE id = $1 AND role = $2',
+            'SELECT id, nom, prenom, email, matricule, role FROM public.utilisateurs WHERE id = $1 AND role = $2',
             [decoded.id, 'admin']
           );
           
@@ -87,7 +87,7 @@ export const protect = async (req, res, next) => {
       } else {
         // Get user from database
         const { rows: users } = await query(
-          'SELECT id, nom, prenom, email, matricule, filiere_id, role FROM utilisateurs WHERE id = $1',
+          'SELECT id, nom, prenom, email, matricule, filiere_id, role FROM public.utilisateurs WHERE id = $1',
           [decoded.id]
         );
         

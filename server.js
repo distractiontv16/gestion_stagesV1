@@ -76,63 +76,97 @@ const listRoutes = () => {
 // Import routes dynamically
 const setupRoutes = async () => {
   try {
-    console.log('Chargement des routes...');
+    console.log('[Serverless Function] Starting setupRoutes...');
     
     // Routes for auth
-    console.log('Chargement des routes auth...');
-    const authRoutes = await import('./src/routes/auth.js');
-    app.use('/api/auth', authRoutes.default);
-    console.log('Routes auth chargées avec succès');
+    console.log('[Serverless Function] Attempting to import authRoutes from ./src/routes/auth.js...');
+    const authRoutesModule = await import('./src/routes/auth.js');
+    console.log('[Serverless Function] authRoutesModule imported. Type:', typeof authRoutesModule, 'Content:', authRoutesModule);
+    
+    if (authRoutesModule && authRoutesModule.default && typeof authRoutesModule.default === 'function') {
+      console.log('[Serverless Function] authRoutesModule.default is a function (router). Attempting to use it for /api/auth');
+      app.use('/api/auth', authRoutesModule.default);
+      console.log('[Serverless Function] /api/auth routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: authRoutesModule.default is not available or not a function. Type of default:', typeof authRoutesModule?.default);
+    }
     
     // Routes for internships
-    console.log('Chargement des routes internships...');
-    const internshipsRoutes = await import('./src/routes/internships.js');
-    app.use('/api/internships', internshipsRoutes.default);
-    console.log('Routes internships chargées avec succès');
+    console.log('[Serverless Function] Attempting to import internshipsRoutes from ./src/routes/internships.js...');
+    const internshipsRoutesModule = await import('./src/routes/internships.js');
+    console.log('[Serverless Function] internshipsRoutesModule imported. Type:', typeof internshipsRoutesModule, 'Content:', internshipsRoutesModule);
+
+    if (internshipsRoutesModule && internshipsRoutesModule.default && typeof internshipsRoutesModule.default === 'function') {
+      console.log('[Serverless Function] internshipsRoutesModule.default is a function (router). Attempting to use it for /api/internships');
+      app.use('/api/internships', internshipsRoutesModule.default);
+      console.log('[Serverless Function] /api/internships routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: internshipsRoutesModule.default is not available or not a function. Type of default:', typeof internshipsRoutesModule?.default);
+    }
     
     // Routes for admin
-    console.log('Chargement des routes admin...');
-    const adminRoutes = await import('./src/routes/admin.js');
-    console.log('Type de adminRoutes:', typeof adminRoutes);
-    console.log('Type de adminRoutes.default:', typeof adminRoutes.default);
+    console.log('[Serverless Function] Attempting to import adminRoutes from ./src/routes/admin.js...');
+    const adminRoutesModule = await import('./src/routes/admin.js');
+    console.log('[Serverless Function] adminRoutesModule imported. Type:', typeof adminRoutesModule, 'Content:', adminRoutesModule);
     
-    if (adminRoutes.default && typeof adminRoutes.default === 'function') {
-      app.use('/api/admin', adminRoutes.default);
-      console.log('Routes admin chargées avec succès');
+    if (adminRoutesModule && adminRoutesModule.default && typeof adminRoutesModule.default === 'function') {
+      console.log('[Serverless Function] adminRoutesModule.default is a function (router). Attempting to use it for /api/admin');
+      app.use('/api/admin', adminRoutesModule.default);
+      console.log('[Serverless Function] /api/admin routes configured.');
     } else {
-      console.error('Erreur: adminRoutes.default n\'est pas un routeur valide');
+      console.error('[Serverless Function] ERROR: adminRoutesModule.default is not available or not a function. Type of default:', typeof adminRoutesModule?.default);
     }
     
     // Routes for public projects and propositions
-    console.log('Chargement des routes projetsPublics...');
-    const projetsPublicsRoutes = await import('./src/routes/projetsPublics.js');
-    app.use('/api', projetsPublicsRoutes.default);
-    console.log('Routes projetsPublics chargées avec succès');
+    console.log('[Serverless Function] Attempting to import projetsPublicsRoutes from ./src/routes/projetsPublics.js...');
+    const projetsPublicsRoutesModule = await import('./src/routes/projetsPublics.js');
+    console.log('[Serverless Function] projetsPublicsRoutesModule imported. Type:', typeof projetsPublicsRoutesModule, 'Content:', projetsPublicsRoutesModule);
+
+    if (projetsPublicsRoutesModule && projetsPublicsRoutesModule.default && typeof projetsPublicsRoutesModule.default === 'function') {
+      console.log('[Serverless Function] projetsPublicsRoutesModule.default is a function (router). Attempting to use it for /api');
+      app.use('/api', projetsPublicsRoutesModule.default); // Note: this is a broad path, ensure order if other /api paths exist
+      console.log('[Serverless Function] /api (projetsPublics) routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: projetsPublicsRoutesModule.default is not available or not a function. Type of default:', typeof projetsPublicsRoutesModule?.default);
+    }
 
     // Routes for notifications
-    console.log('Chargement des routes notifications...');
-    const notificationsRoutes = await import('./src/routes/notifications.js');
-    app.use('/api/notifications', notificationsRoutes.default);
-    console.log('Routes notifications chargées avec succès');
+    console.log('[Serverless Function] Attempting to import notificationsRoutes from ./src/routes/notifications.js...');
+    const notificationsRoutesModule = await import('./src/routes/notifications.js');
+    console.log('[Serverless Function] notificationsRoutesModule imported. Type:', typeof notificationsRoutesModule, 'Content:', notificationsRoutesModule);
+
+    if (notificationsRoutesModule && notificationsRoutesModule.default && typeof notificationsRoutesModule.default === 'function') {
+      console.log('[Serverless Function] notificationsRoutesModule.default is a function (router). Attempting to use it for /api/notifications');
+      app.use('/api/notifications', notificationsRoutesModule.default);
+      console.log('[Serverless Function] /api/notifications routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: notificationsRoutesModule.default is not available or not a function. Type of default:', typeof notificationsRoutesModule?.default);
+    }
     
-    // Import the auth middleware
-    console.log('Chargement du middleware auth...');
-    const authMiddleware = await import('./src/middleware/auth.js');
+    // Import the auth middleware (Note: this import is not used for app.use, was it for the testProtectedRoute only?)
+    console.log('[Serverless Function] Attempting to import authMiddleware from ./src/middleware/auth.js...');
+    const authMiddlewareModule = await import('./src/middleware/auth.js');
+    console.log('[Serverless Function] authMiddlewareModule imported. Type:', typeof authMiddlewareModule, 'Content:', authMiddlewareModule);
     
     // Example of protected routes
-    const testProtectedRoute = express.Router();
-    testProtectedRoute.get('/test', authMiddleware.protect, (req, res) => {
-      res.json({ success: true, message: 'Route protégée accessible', user: req.user });
-    });
+    if (authMiddlewareModule && authMiddlewareModule.protect) {
+      console.log('[Serverless Function] authMiddlewareModule.protect is available. Configuring testProtectedRoute.');
+      const testProtectedRoute = express.Router();
+      testProtectedRoute.get('/test', authMiddlewareModule.protect, (req, res) => {
+        res.json({ success: true, message: 'Route protégée accessible', user: req.user });
+      });
+      app.use('/api', testProtectedRoute); // Note: Also a broad path, consider specificity or order
+      console.log('[Serverless Function] /api/test route configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: authMiddlewareModule.protect is not available!');
+    }
     
-    app.use('/api', testProtectedRoute);
-    
-    console.log('Routes loaded successfully');
+    console.log('[Serverless Function] All routes configuration attempts finished.');
     
     // List all registered routes
     listRoutes();
   } catch (error) {
-    console.error('Error loading routes:', error);
+    console.error('[Serverless Function] CRITICAL ERROR in setupRoutes:', error);
   }
   
   // Servir les fichiers statiques du frontend React (après le build)

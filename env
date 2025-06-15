@@ -1,0 +1,44 @@
+# Configuration du serveur
+PORT=3000
+NODE_ENV=development
+
+# Configuration de la base de données Neon
+DATABASE_URL="postgresql://stagedb_owner:npg_9IiKP6NEQZtR@ep-holy-paper-a8tprhn6-pooler.eastus2.azure.neon.tech/stagedb?sslmode=require&client_encoding=utf8"
+
+# Configuration JWT
+JWT_SECRET=3482e1b872251f538b3ae719db67c1b69f0e7f1d612a585e043dbc895df02ecd
+JWT_EXPIRE=7d
+
+# Configuration de la base de données (optionnel pour debug)
+DB_HOST=ep-holy-paper-a8tprhn6-pooler.eastus2.azure.neon.tech
+DB_NAME=stagedb
+DB_USER=stagedb_owner
+DB_SSL=true
+
+# Configuration PWA et Push Notifications
+VAPID_PUBLIC_KEY=BGpP0bGg3XCRT0xOvW1jEbOAZeHQh7YjGgze1uLZYB9uY2ceAOeU4X4AhHu0T9sxGmTmzBNB-fSajJXI5QPaypo
+VAPID_PRIVATE_KEY=n4Bc7E-1KyGtBPUCdQtmO0th9qi9FuPTrP-0WIREOqE
+VAPID_SUBJECT=mailto:admin@insti.edu
+
+# Configuration PWA pour le frontend (Vite)
+VITE_VAPID_PUBLIC_KEY=BGpP0bGg3XCRT0xOvW1jEbOAZeHQh7YjGgze1uLZYB9uY2ceAOeU4X4AhHu0T9sxGmTmzBNB-fSajJXI5QPaypo
+
+# Configuration SMS Services (à configurer plus tard)
+ORANGE_API_TOKEN=
+ORANGE_API_URL=https://api.orange.com/smsmessaging/v1
+MTN_API_TOKEN=
+MTN_API_URL=
+
+# Configuration Voice AI (à configurer plus tard)
+BLAND_AI_API_KEY=
+BLAND_AI_BASE_URL=https://api.bland.ai/v1
+
+# Paramètres de notification
+NOTIFICATION_RETRY_ATTEMPTS=3
+SMS_DELAY_HOURS=12
+VOICE_DELAY_HOURS=24
+PWA_MANDATORY_FOR_STUDENTS=true
+
+
+
+ 

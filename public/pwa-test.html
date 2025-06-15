@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test PWA INSTI</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        button {
+            background: #f97316;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #ea580c; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎓 Test PWA INSTI</h1>
+    
+    <div class="test-card">
+        <h2>📱 Support PWA</h2>
+        <div id="pwa-support"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>🔧 Service Worker</h2>
+        <div id="sw-status"></div>
+        <button onclick="registerSW()">Enregistrer SW</button>
+        <button onclick="unregisterSW()">Désinscrire SW</button>
+    </div>
+
+    <div class="test-card">
+        <h2>📄 Manifeste</h2>
+        <div id="manifest-status"></div>
+        <button onclick="checkManifest()">Vérifier Manifeste</button>
+    </div>
+
+    <div class="test-card">
+        <h2>🔔 Notifications</h2>
+        <div id="notification-status"></div>
+        <button onclick="requestNotificationPermission()">Demander Permission</button>
+        <button onclick="testNotification()">Test Notification</button>
+    </div>
+
+    <div class="test-card">
+        <h2>📦 Installation</h2>
+        <div id="install-status"></div>
+        <button onclick="installPWA()">Installer PWA</button>
+    </div>
+
+    <div class="test-card">
+        <h2>📋 Logs</h2>
+        <div id="logs" class="log"></div>
+        <button onclick="clearLogs()">Effacer Logs</button>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.push(`[${timestamp}] ${message}`);
+            updateLogs();
+            console.log(message);
+        }
+
+        function updateLogs() {
+            document.getElementById('logs').innerHTML = logs.slice(-20).join('\n');
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateLogs();
+        }
+
+        function getStatusHTML(condition, trueText, falseText) {
+            return condition 
+                ? `<span class="status success">✅ ${trueText}</span>`
+                : `<span class="status error">❌ ${falseText}</span>`;
+        }
+
+        function checkPWASupport() {
+            const support = {
+                serviceWorker: 'serviceWorker' in navigator,
+                manifest: 'manifest' in document.createElement('link'),
+                pushManager: 'PushManager' in window,
+                notification: 'Notification' in window,
+                standalone: window.matchMedia('(display-mode: standalone)').matches,
+                https: location.protocol === 'https:' || location.hostname === 'localhost'
+            };
+
+            let html = '';
+            html += getStatusHTML(support.serviceWorker, 'Service Worker supporté', 'Service Worker non supporté');
+            html += getStatusHTML(support.manifest, 'Manifeste supporté', 'Manifeste non supporté');
+            html += getStatusHTML(support.pushManager, 'Push Manager supporté', 'Push Manager non supporté');
+            html += getStatusHTML(support.notification, 'Notifications supportées', 'Notifications non supportées');
+            html += getStatusHTML(support.standalone, 'Mode Standalone actif', 'Mode Standalone inactif');
+            html += getStatusHTML(support.https, 'HTTPS actif', 'HTTPS requis pour PWA');
+
+            document.getElementById('pwa-support').innerHTML = html;
+            log(`Support PWA: ${JSON.stringify(support)}`);
+        }
+
+        async function registerSW() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    log('Service Worker enregistré avec succès');
+                    checkSWStatus();
+                } catch (error) {
+                    log(`Erreur d'enregistrement SW: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function unregisterSW() {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                }
+                log('Service Worker désinscrit');
+                checkSWStatus();
+            }
+        }
+
+        async function checkSWStatus() {
+            if ('serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.getRegistration();
+                const isRegistered = !!registration;
+                const isActive = registration && !!registration.active;
+                
+                let html = '';
+                html += getStatusHTML(isRegistered, 'Service Worker enregistré', 'Service Worker non enregistré');
+                html += getStatusHTML(isActive, 'Service Worker actif', 'Service Worker inactif');
+                
+                document.getElementById('sw-status').innerHTML = html;
+                log(`SW Status: enregistré=${isRegistered}, actif=${isActive}`);
+            }
+        }
+
+        async function checkManifest() {
+            try {
+                const response = await fetch('/manifest.json');
+                const manifest = await response.json();
+                
+                let html = '';
+                html += getStatusHTML(response.ok, 'Manifeste accessible', 'Manifeste inaccessible');
+                html += getStatusHTML(manifest.name, `Nom: ${manifest.name}`, 'Nom manquant');
+                html += getStatusHTML(manifest.icons && manifest.icons.length > 0, `${manifest.icons.length} icônes`, 'Icônes manquantes');
+                
+                document.getElementById('manifest-status').innerHTML = html;
+                log(`Manifeste: ${JSON.stringify(manifest, null, 2)}`);
+            } catch (error) {
+                document.getElementById('manifest-status').innerHTML = 
+                    '<span class="status error">❌ Erreur de chargement du manifeste</span>';
+                log(`Erreur manifeste: ${error.message}`, 'error');
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                checkNotificationStatus();
+                log(`Permission notification: ${permission}`);
+            }
+        }
+
+        function testNotification() {
+            if (Notification.permission === 'granted') {
+                new Notification('Test INSTI PWA', {
+                    body: 'Notification de test fonctionnelle !',
+                    icon: '/icons/icon-192x192.png'
+                });
+                log('Notification de test envoyée');
+            } else {
+                log('Permission notification requise', 'error');
+            }
+        }
+
+        function checkNotificationStatus() {
+            if ('Notification' in window) {
+                const permission = Notification.permission;
+                let html = '';
+                html += getStatusHTML(permission === 'granted', 'Permission accordée', 
+                    permission === 'denied' ? 'Permission refusée' : 'Permission en attente');
+                
+                document.getElementById('notification-status').innerHTML = html;
+            }
+        }
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    log(`Choix installation: ${choiceResult.outcome}`);
+                    deferredPrompt = null;
+                    checkInstallStatus();
+                });
+            } else {
+                log('Prompt d\'installation non disponible', 'warning');
+            }
+        }
+
+        function checkInstallStatus() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const isInstalled = isStandalone || (window.navigator as any).standalone;
+            const isInstallable = !!deferredPrompt;
+            
+            let html = '';
+            html += getStatusHTML(isInstalled, 'PWA installée', 'PWA non installée');
+            html += getStatusHTML(isInstallable, 'Installation disponible', 'Installation non disponible');
+            
+            document.getElementById('install-status').innerHTML = html;
+        }
+
+        // Event listeners
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            log('Prompt d\'installation disponible');
+            checkInstallStatus();
+        });
+
+        window.addEventListener('appinstalled', () => {
+            log('PWA installée avec succès');
+            checkInstallStatus();
+        });
+
+        // Initialisation
+        window.addEventListener('load', () => {
+            checkPWASupport();
+            checkSWStatus();
+            checkManifest();
+            checkNotificationStatus();
+            checkInstallStatus();
+            log('Test PWA initialisé');
+        });
+    </script>
+</body>
+</html>

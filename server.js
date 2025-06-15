@@ -8,6 +8,22 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 
+// Vérifier les variables d'environnement critiques
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL n\'est pas définie dans les variables d\'environnement');
+  console.error('💡 Assurez-vous que le fichier .env existe et contient DATABASE_URL');
+  process.exit(1);
+}
+
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET n\'est pas définie dans les variables d\'environnement');
+  process.exit(1);
+}
+
+console.log('✅ Variables d\'environnement chargées');
+console.log(`🌍 Environnement: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔌 Port: ${process.env.PORT || 3000}`);
+
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,7 +158,20 @@ const setupRoutes = async () => {
     } else {
       console.error('[Serverless Function] ERROR: notificationsRoutesModule.default is not available or not a function. Type of default:', typeof notificationsRoutesModule?.default);
     }
-    
+
+    // Routes for push notifications
+    console.log('[Serverless Function] Attempting to import pushRoutes from ./src/routes/push.js...');
+    const pushRoutesModule = await import('./src/routes/push.js');
+    console.log('[Serverless Function] pushRoutesModule imported. Type:', typeof pushRoutesModule, 'Content:', pushRoutesModule);
+
+    if (pushRoutesModule && pushRoutesModule.default && typeof pushRoutesModule.default === 'function') {
+      console.log('[Serverless Function] pushRoutesModule.default is a function (router). Attempting to use it for /api/push');
+      app.use('/api/push', pushRoutesModule.default);
+      console.log('[Serverless Function] /api/push routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: pushRoutesModule.default is not available or not a function. Type of default:', typeof pushRoutesModule?.default);
+    }
+
     // Import the auth middleware (Note: this import is not used for app.use, was it for the testProtectedRoute only?)
     console.log('[Serverless Function] Attempting to import authMiddleware from ./src/middleware/auth.js...');
     const authMiddlewareModule = await import('./src/middleware/auth.js');
@@ -204,9 +233,40 @@ const setupRoutes = async () => {
   });
   
   // Start server
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  const server = app.listen(PORT, () => {
+    console.log('🚀 ================================');
+    console.log(`🎉 Serveur démarré avec succès !`);
+    console.log(`🔗 URL: http://localhost:${PORT}`);
+    console.log(`🌍 Environnement: ${process.env.NODE_ENV || 'development'}`);
+    console.log('🚀 ================================');
   });
+
+  // Gestion de l'arrêt propre du serveur
+  const gracefulShutdown = async (signal) => {
+    console.log(`\n🛑 Signal ${signal} reçu, arrêt du serveur...`);
+
+    server.close(async () => {
+      console.log('✅ Serveur HTTP fermé');
+
+      try {
+        // Importer et fermer le pool de base de données
+        const db = await import('./src/config/db.js');
+        if (db.default.closePool) {
+          await db.default.closePool();
+        }
+        console.log('✅ Connexions base de données fermées');
+      } catch (error) {
+        console.error('❌ Erreur lors de la fermeture des connexions DB:', error);
+      }
+
+      console.log('👋 Arrêt complet du serveur');
+      process.exit(0);
+    });
+  };
+
+  // Écouter les signaux d'arrêt
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 };
 
 // Set up routes and start server

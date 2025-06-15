@@ -388,4 +388,33 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
-export default router; 
+/**
+ * POST /api/auth/mark-pwa-installed
+ * Marquer l'installation PWA pour l'utilisateur connecté
+ */
+router.post('/mark-pwa-installed', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { installedAt } = req.body;
+
+    await query(
+      'UPDATE utilisateurs SET pwa_installed_at = $1 WHERE id = $2',
+      [installedAt || new Date().toISOString(), userId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Installation PWA marquée avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur marquage installation PWA:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du marquage de l\'installation PWA',
+      error: error.message
+    });
+  }
+});
+
+export default router;

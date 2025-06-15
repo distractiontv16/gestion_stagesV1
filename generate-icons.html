@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur d'icônes INSTI</title>
+</head>
+<body>
+    <h1>Générateur d'icônes PWA INSTI</h1>
+    <p>Cliquez sur les boutons pour télécharger les icônes générées.</p>
+    
+    <div id="icons-container"></div>
+
+    <script>
+        // Fonction pour créer une icône SVG
+        function createIcon(size, text = 'INSTI') {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Fond orange
+            ctx.fillStyle = '#f97316';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Texte blanc
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, size / 2, size / 2);
+            
+            return canvas;
+        }
+        
+        // Fonction pour télécharger une icône
+        function downloadIcon(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Générer toutes les tailles d'icônes
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const container = document.getElementById('icons-container');
+        
+        sizes.forEach(size => {
+            const canvas = createIcon(size);
+            const button = document.createElement('button');
+            button.textContent = `Télécharger icon-${size}x${size}.png`;
+            button.style.margin = '5px';
+            button.style.padding = '10px';
+            button.style.backgroundColor = '#f97316';
+            button.style.color = 'white';
+            button.style.border = 'none';
+            button.style.borderRadius = '5px';
+            button.style.cursor = 'pointer';
+            
+            button.onclick = () => downloadIcon(canvas, `icon-${size}x${size}.png`);
+            container.appendChild(button);
+            container.appendChild(document.createElement('br'));
+        });
+        
+        // Icône de badge pour les notifications urgentes
+        const badgeCanvas = document.createElement('canvas');
+        badgeCanvas.width = 72;
+        badgeCanvas.height = 72;
+        const badgeCtx = badgeCanvas.getContext('2d');
+        
+        // Fond rouge pour urgence
+        badgeCtx.fillStyle = '#dc2626';
+        badgeCtx.fillRect(0, 0, 72, 72);
+        
+        // Point d'exclamation blanc
+        badgeCtx.fillStyle = '#ffffff';
+        badgeCtx.font = 'bold 48px Arial';
+        badgeCtx.textAlign = 'center';
+        badgeCtx.textBaseline = 'middle';
+        badgeCtx.fillText('!', 36, 36);
+        
+        const badgeButton = document.createElement('button');
+        badgeButton.textContent = 'Télécharger badge-urgent.png';
+        badgeButton.style.margin = '5px';
+        badgeButton.style.padding = '10px';
+        badgeButton.style.backgroundColor = '#dc2626';
+        badgeButton.style.color = 'white';
+        badgeButton.style.border = 'none';
+        badgeButton.style.borderRadius = '5px';
+        badgeButton.style.cursor = 'pointer';
+        
+        badgeButton.onclick = () => downloadIcon(badgeCanvas, 'badge-urgent.png');
+        container.appendChild(badgeButton);
+    </script>
+</body>
+</html>

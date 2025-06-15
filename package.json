@@ -6,9 +6,25 @@
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
+    "server:dev": "nodemon server.js",
+    "server:prod": "NODE_ENV=production node server.js",
+    "server:start": "node start-dev.js",
+    "db:test": "node test-db-connection.js",
+    "db:check": "node -e \"import('./src/config/db.js')\"",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "npm run server:start",
+    "start:dev": "concurrently \"npm run dev\" \"npm run server:dev\"",
+    "start:mobile": "node start-mobile-test.js",
+    "start:pwa": "node start-pwa-test.js",
+    "test:pwa": "node test-pwa-fixes.js",
+    "restart:pwa": "node restart-pwa-test.js",
+    "clean:push": "node clean-push-subscriptions.js",
+    "diagnose:push": "node diagnose-push.js",
+    "dev:frontend": "vite",
+    "dev:backend": "nodemon server.js",
+    "dev:full": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -45,6 +61,7 @@
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.3",
     "tailwindcss": "^4.1.7",
+    "web-push": "^3.6.7",
     "yup": "^1.6.1"
   },
   "devDependencies": {
@@ -54,13 +71,15 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "nodemon": "^3.1.10",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^1.0.0"
   },
   "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
   "main": "eslint.config.js",

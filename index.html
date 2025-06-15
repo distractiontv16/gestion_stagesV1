@@ -55,40 +55,14 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration - Version simplifiée basée sur le tutoriel -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('/sw.js', {
-              scope: '/',
-              updateViaCache: 'none'
-            });
-
+            // Enregistrement simple comme dans le tutoriel YouTube
+            const registration = await navigator.serviceWorker.register('/sw.js');
             console.log('✅ Service Worker enregistré:', registration);
-
-            // Vérification spéciale pour différents navigateurs
-            const userAgent = navigator.userAgent;
-            if (userAgent.includes('Brave')) {
-              console.log('🦁 Brave Browser détecté - Configuration PWA optimisée');
-            } else if (userAgent.includes('Chrome')) {
-              console.log('🌐 Chrome détecté - Support PWA complet');
-            } else if (userAgent.includes('Firefox')) {
-              console.log('🔥 Firefox détecté - Support PWA partiel');
-            }
-
-            // Gestion des mises à jour du service worker
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              if (newWorker) {
-                console.log('🔄 Nouvelle version du Service Worker détectée');
-                newWorker.addEventListener('statechange', () => {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('✨ Nouvelle version prête - Rechargement recommandé');
-                  }
-                });
-              }
-            });
 
             // Vérifier l'état du service worker
             if (registration.active) {

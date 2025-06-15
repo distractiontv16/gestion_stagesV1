@@ -8,9 +8,8 @@ import ProfileTab from '@/components/student/dashboard/ProfileTab';
 import InternshipInfoTab from '@/components/student/dashboard/InternshipInfoTab';
 import FindInternshipTab from '@/components/student/dashboard/FindInternshipTab';
 import NotificationsTab from '@/components/student/dashboard/NotificationsTab';
-import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import { PWATestSimple } from '@/components/PWATestSimple';
 import { InternshipOffer } from '@/types';
-import { usePWA } from '@/hooks/usePWA';
 
 // Liste des filières pour mappage ID -> nom
 const filieres = [
@@ -69,8 +68,6 @@ const StudentDashboard = () => {
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [loadingStage, setLoadingStage] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showPWAPrompt, setShowPWAPrompt] = useState(true);
-  const [isPWAReady, setIsPWAReady] = useState(false);
   const [studentInfo, setStudentInfo] = useState<UserInfo>({
     nom: '',
     prenom: '',
@@ -80,86 +77,11 @@ const StudentDashboard = () => {
     telephone: '',
   });
   const [internshipOffers, setInternshipOffers] = useState<InternshipOffer[]>([]);
-  const [isLoadingInternships, setIsLoadingInternships] = useState(true);
-  const [errorInternships, setErrorInternships] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { checkInstallation, requestNotificationPermission, subscribeToPush } = usePWA();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Gestion PWA pour les étudiants uniquement avec fallback vers système simple
-  useEffect(() => {
-    const initializeNotifications = async () => {
-      // Vérifier si l'utilisateur est un étudiant
-      if (studentInfo.role === 'etudiant' || !studentInfo.role) {
-
-        // Simplifier : utiliser directement le système PWA existant
-        console.log('🎯 Utilisation du système PWA existant (recommandé)');
-
-        // Essayer le système PWA normal
-        const isInstalled = checkInstallation();
-
-        if (isInstalled) {
-          // PWA installée, vérifier les permissions de notification
-          if (Notification.permission !== 'granted') {
-            setShowPWAPrompt(true);
-          } else {
-            // Tout est configuré, s'abonner aux notifications push
-            try {
-              await subscribeToPush();
-              setIsPWAReady(true);
-              setShowPWAPrompt(false);
-            } catch (error) {
-              console.error('Erreur abonnement push:', error);
-              // Le système PWA fonctionne quand même pour les notifications serveur
-              setIsPWAReady(true);
-              setShowPWAPrompt(false);
-            }
-          }
-        } else {
-          // PWA non installée, afficher le prompt
-          setShowPWAPrompt(true);
-        }
-      } else {
-        // Utilisateur admin, pas besoin de PWA
-        setShowPWAPrompt(false);
-        setIsPWAReady(true);
-      }
-    };
-
-    if (studentInfo.role) {
-      initializeNotifications();
-    }
-
-    // Pas de cleanup nécessaire pour le système PWA
-  }, [studentInfo.role, checkInstallation, subscribeToPush]);
-
-  const handlePWAInstallComplete = async () => {
-    try {
-      // Demander les permissions de notification
-      const permission = await requestNotificationPermission();
-
-      if (permission === 'granted') {
-        // S'abonner aux notifications push
-        await subscribeToPush();
-        setIsPWAReady(true);
-      }
-
-      setShowPWAPrompt(false);
-    } catch (error) {
-      console.error('Erreur configuration PWA:', error);
-    }
-  };
-
-  const handlePWASkip = () => {
-    // Pour les étudiants, l'installation est obligatoire
-    if (studentInfo.role === 'etudiant' || !studentInfo.role) {
-      alert('L\'installation de l\'application est obligatoire pour accéder à la plateforme étudiante.');
-      return;
-    }
-
-    setShowPWAPrompt(false);
-  };
+  // PWA est maintenant géré automatiquement via le service worker
 
   // Chargement des informations utilisateur
   useEffect(() => {
@@ -251,8 +173,6 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     const fetchInternshipOffers = async () => {
-      setIsLoadingInternships(true);
-      setErrorInternships(null);
       try {
         const response = await fetch('/api/propositions-stages');
         if (!response.ok) {
@@ -262,9 +182,6 @@ const StudentDashboard = () => {
         setInternshipOffers(data);
       } catch (error) {
         console.error("Erreur fetchInternshipOffers:", error);
-        setErrorInternships(error instanceof Error ? error.message : String(error));
-      } finally {
-        setIsLoadingInternships(false);
       }
     };
 
@@ -329,15 +246,6 @@ const StudentDashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Prompt PWA obligatoire pour les étudiants */}
-      {showPWAPrompt && (studentInfo.role === 'etudiant' || !studentInfo.role) && (
-        <PWAInstallPrompt
-          isStudent={true}
-          onInstallComplete={handlePWAInstallComplete}
-          onSkip={handlePWASkip}
-        />
-      )}
-
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -387,6 +295,7 @@ const StudentDashboard = () => {
               )}
               {activeTab === 'projets' && <ProjetsTab />}
               {activeTab === 'notifications' && <NotificationsTab />}
+              {activeTab === 'pwa-test' && <PWATestSimple />}
             </>
           )}
         </main>

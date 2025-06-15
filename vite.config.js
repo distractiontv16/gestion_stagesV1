@@ -8,15 +8,8 @@ export default defineConfig({
   plugins: [
     react(),
 VitePWA({
-      registerType: 'autoUpdate',
-      strategies: 'injectManifest',
-      srcDir: 'public',
-      filename: 'sw.js',
-      injectManifest: {
-        swSrc: 'public/sw.js',
-        swDest: 'dist/sw.js',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
-      },
+      registerType: 'manual', // Enregistrement manuel comme dans le tutoriel
+      strategies: 'generateSW', // Utiliser generateSW au lieu d'injectManifest
       includeAssets: [
         'icons/icon-72x72.png',
         'icons/icon-96x96.png',
@@ -29,8 +22,12 @@ VitePWA({
       ],
       manifest: false, // Utiliser notre manifeste existant
       devOptions: {
-        enabled: true,
-        type: 'module'
+        enabled: false // Désactiver en dev pour éviter les conflits
+      },
+      workbox: {
+        // Configuration minimale pour éviter les conflits
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],

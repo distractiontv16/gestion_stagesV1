@@ -128,8 +128,8 @@ class PushNotificationService {
             success: true 
           });
 
-          // Marquer comme envoyé dans la base de données
-          if (payload.notificationId) {
+          // Marquer comme envoyé dans la base de données (seulement pour les vraies notifications)
+          if (payload.notificationId && typeof payload.notificationId === 'number') {
             await this.markAsSent(payload.notificationId, subscription.id);
           }
 
@@ -205,20 +205,97 @@ class PushNotificationService {
   }
 
   /**
-   * Tester l'envoi d'une notification push
+   * Tester l'envoi d'une notification push (version simplifiée)
    */
   async sendTestNotification(userId) {
-    const testPayload = {
-      title: '🎓 Test INSTI',
-      message: 'Ceci est un test de notification push. Votre configuration fonctionne correctement !',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/badge-urgent.png',
-      targetUrl: '/student/dashboard',
-      studentId: userId,
-      notificationId: `test-${Date.now()}`
-    };
+    if (this.vapidConfigured === false) {
+      console.warn('⚠️ VAPID non configuré - Notification push ignorée');
+      return { success: false, message: 'Service push non configuré' };
+    }
 
-    return await this.sendToUser(userId, testPayload);
+    try {
+      // Récupérer les abonnements actifs de l'utilisateur
+      const { rows: subscriptions } = await db.query(
+        'SELECT * FROM push_subscriptions WHERE utilisateur_id = $1 AND is_active = TRUE',
+        [userId]
+      );
+
+      if (subscriptions.length === 0) {
+        console.log(`Aucun abonnement push actif pour l'utilisateur ${userId}`);
+        return { success: false, message: 'Aucun abonnement push actif' };
+      }
+
+      const testPayload = {
+        title: '🎓 Test INSTI',
+        message: 'Ceci est un test de notification push. Votre configuration fonctionne correctement !',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-urgent.png',
+        targetUrl: '/student/dashboard',
+        studentId: userId
+        // Pas de notificationId pour éviter les erreurs de DB
+      };
+
+      const results = [];
+
+      for (const subscription of subscriptions) {
+        try {
+          const pushSubscription = {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh_key,
+              auth: subscription.auth_key
+            }
+          };
+
+          await webpush.sendNotification(pushSubscription, JSON.stringify(testPayload));
+
+          results.push({
+            endpoint: subscription.endpoint,
+            success: true
+          });
+
+          console.log('✅ Notification de test envoyée avec succès');
+          // Pas de marquage DB pour les tests
+
+        } catch (error) {
+          console.error(`Erreur envoi push test vers ${subscription.endpoint}:`, error);
+
+          // Si l'abonnement est invalide, le désactiver
+          if (error.statusCode === 410 || error.statusCode === 404 || error.statusCode === 403) {
+            console.log(`Désactivation de l'abonnement invalide: ${subscription.id}`);
+            await db.query(
+              'UPDATE push_subscriptions SET is_active = FALSE WHERE id = $1',
+              [subscription.id]
+            );
+          }
+
+          results.push({
+            endpoint: subscription.endpoint,
+            success: false,
+            error: error.message,
+            statusCode: error.statusCode
+          });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+
+      return {
+        success: successCount > 0,
+        message: successCount > 0 ?
+          `✅ Test réussi ! ${successCount}/${results.length} notifications envoyées` :
+          `❌ Échec du test. Tous les abonnements sont invalides.`,
+        results
+      };
+
+    } catch (error) {
+      console.error('Erreur lors du test de notification push:', error);
+      return {
+        success: false,
+        message: 'Erreur lors du test de notification push',
+        error: error.message
+      };
+    }
   }
 
   /**
@@ -324,4 +401,45 @@ class PushNotificationService {
   }
 }
 
-export default new PushNotificationService();
+// Instance du service
+const pushService = new PushNotificationService();
+
+/**
+ * Fonction utilitaire pour envoyer des notifications push à plusieurs utilisateurs
+ * Utilisée par le contrôleur de notifications
+ */
+export const sendPushNotificationToUsers = async (userIds, payload) => {
+  console.log('📡 Envoi notifications push à', userIds.length, 'utilisateurs');
+
+  try {
+    const result = await pushService.sendToMultipleUsers(userIds, payload);
+
+    console.log('✅ Résultat envoi push:', {
+      success: result.success,
+      message: result.message,
+      details: result.results?.map(r => ({
+        userId: r.userId,
+        success: r.success,
+        error: r.error || null
+      }))
+    });
+
+    return {
+      success: result.success,
+      sent: result.results?.filter(r => r.success).length || 0,
+      failed: result.results?.filter(r => !r.success).length || 0,
+      details: result.results
+    };
+
+  } catch (error) {
+    console.error('❌ Erreur envoi push notifications:', error);
+    return {
+      success: false,
+      sent: 0,
+      failed: userIds.length,
+      error: error.message
+    };
+  }
+};
+
+export default pushService;

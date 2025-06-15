@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { sendPushNotificationToUsers } from '../services/PushNotificationService.js';
 const { query } = db;
 
 // Fonction utilitaire pour le log de débogage
@@ -193,7 +194,41 @@ export const createNotification = async (req, res) => {
 
       await client.query('COMMIT');
       debug('Transaction commitée', { createdCount });
-      
+
+      // NOUVEAU : Envoyer les notifications push après création en base
+      debug('Envoi des notifications push...', { userIdsToNotify, titre, message });
+      try {
+        const pushResult = await sendPushNotificationToUsers(userIdsToNotify, {
+          title: titre,
+          body: message,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-urgent.png',
+          tag: 'admin-notification',
+          requireInteraction: true,
+          data: {
+            type: 'admin_notification',
+            timestamp: new Date().toISOString(),
+            url: '/student/notifications'
+          }
+        });
+
+        debug('Résultat envoi push', {
+          success: pushResult.success,
+          sent: pushResult.sent,
+          failed: pushResult.failed
+        });
+
+        if (pushResult.success) {
+          debug(`✅ Notifications push envoyées: ${pushResult.sent}/${userIdsToNotify.length}`);
+        } else {
+          debug(`⚠️ Problème envoi push: ${pushResult.failed}/${userIdsToNotify.length} échecs`);
+        }
+      } catch (pushError) {
+        debug('❌ Erreur lors de l\'envoi des notifications push', { error: pushError.message });
+        console.error('Erreur push notifications:', pushError);
+        // Ne pas faire échouer la requête si les push échouent
+      }
+
       res.status(201).json({
         success: true,
         message: `${createdCount} notification(s) créée(s) avec succès.`,

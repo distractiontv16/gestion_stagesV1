@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { sendPushNotificationToUsers } from '../services/PushNotificationService.js';
 const { query } = db;
 
 // Fonction utilitaire pour le log de débogage
@@ -25,21 +26,24 @@ export const getNotificationsForUser = async (req, res) => {
     }
 
     const { rows: notifications } = await query(
-      `SELECT 
+      `SELECT
         id,
         titre, -- Ajout de la colonne titre
         message,
         lue,
-        created_at
-      FROM 
+        created_at,
+        type,
+        priority,
+        target_url
+      FROM
         notifications
-      WHERE 
+      WHERE
         utilisateur_id = $1
-      ORDER BY 
+      ORDER BY
         created_at DESC`,
       [utilisateurId]
     );
-    
+
     res.status(200).json({
       success: true,
       data: notifications
@@ -50,6 +54,56 @@ export const getNotificationsForUser = async (req, res) => {
       success: false,
       message: 'Erreur lors de la récupération des notifications',
       error: error.message
+    });
+  }
+};
+
+/**
+ * Récupère uniquement les notifications non lues pour l'utilisateur (pour le polling)
+ */
+export const getUnreadNotificationsForUser = async (req, res) => {
+  try {
+    const utilisateurId = req.user?.id;
+
+    if (!utilisateurId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non authentifié'
+      });
+    }
+
+    const { rows: notifications } = await query(
+      `SELECT
+        id,
+        titre,
+        message,
+        lue,
+        created_at,
+        type,
+        priority,
+        target_url
+      FROM
+        notifications
+      WHERE
+        utilisateur_id = $1
+        AND lue = FALSE
+        AND (expires_at IS NULL OR expires_at > NOW())
+      ORDER BY
+        created_at DESC`,
+      [utilisateurId]
+    );
+
+    res.status(200).json({
+      success: true,
+      notifications: notifications,
+      count: notifications.length
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la récupération des notifications non lues:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des notifications non lues'
     });
   }
 };
@@ -140,7 +194,41 @@ export const createNotification = async (req, res) => {
 
       await client.query('COMMIT');
       debug('Transaction commitée', { createdCount });
-      
+
+      // NOUVEAU : Envoyer les notifications push après création en base
+      debug('Envoi des notifications push...', { userIdsToNotify, titre, message });
+      try {
+        const pushResult = await sendPushNotificationToUsers(userIdsToNotify, {
+          title: titre,
+          body: message,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-urgent.png',
+          tag: 'admin-notification',
+          requireInteraction: true,
+          data: {
+            type: 'admin_notification',
+            timestamp: new Date().toISOString(),
+            url: '/student/notifications'
+          }
+        });
+
+        debug('Résultat envoi push', {
+          success: pushResult.success,
+          sent: pushResult.sent,
+          failed: pushResult.failed
+        });
+
+        if (pushResult.success) {
+          debug(`✅ Notifications push envoyées: ${pushResult.sent}/${userIdsToNotify.length}`);
+        } else {
+          debug(`⚠️ Problème envoi push: ${pushResult.failed}/${userIdsToNotify.length} échecs`);
+        }
+      } catch (pushError) {
+        debug('❌ Erreur lors de l\'envoi des notifications push', { error: pushError.message });
+        console.error('Erreur push notifications:', pushError);
+        // Ne pas faire échouer la requête si les push échouent
+      }
+
       res.status(201).json({
         success: true,
         message: `${createdCount} notification(s) créée(s) avec succès.`,
@@ -273,4 +361,36 @@ export const markAllNotificationsAsRead = async (req, res) => {
     console.error('Erreur lors de la mise à jour de toutes les notifications:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
   }
-}; 
+};
+
+/**
+ * Marque une notification comme affichée (pour le système simple de notifications)
+ */
+export const markNotificationAsDisplayed = async (req, res) => {
+  try {
+    const utilisateurId = req.user?.id;
+    const notificationId = req.params.id;
+
+    if (!utilisateurId) {
+      return res.status(401).json({ success: false, message: 'Utilisateur non authentifié' });
+    }
+    if (!notificationId) {
+      return res.status(400).json({ success: false, message: 'ID de notification manquant' });
+    }
+
+    // Marquer comme affichée (on peut ajouter une colonne displayed_at si nécessaire)
+    const { rowCount } = await query(
+      'UPDATE notifications SET push_delivered_at = NOW() WHERE id = $1 AND utilisateur_id = $2',
+      [notificationId, utilisateurId]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Notification non trouvée ou non autorisée' });
+    }
+
+    res.status(200).json({ success: true, message: 'Notification marquée comme affichée' });
+  } catch (error) {
+    console.error('Erreur lors du marquage de la notification comme affichée:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+};

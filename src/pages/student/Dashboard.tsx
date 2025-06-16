@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StageForm } from '@/components/ui/stage-form';
 import { ProjetsTab } from '@/components/ui/projets-tab';
@@ -8,6 +8,7 @@ import ProfileTab from '@/components/student/dashboard/ProfileTab';
 import InternshipInfoTab from '@/components/student/dashboard/InternshipInfoTab';
 import FindInternshipTab from '@/components/student/dashboard/FindInternshipTab';
 import NotificationsTab from '@/components/student/dashboard/NotificationsTab';
+import { PWATestSimple } from '@/components/PWATestSimple';
 import { InternshipOffer } from '@/types';
 
 // Liste des filières pour mappage ID -> nom
@@ -76,11 +77,11 @@ const StudentDashboard = () => {
     telephone: '',
   });
   const [internshipOffers, setInternshipOffers] = useState<InternshipOffer[]>([]);
-  const [isLoadingInternships, setIsLoadingInternships] = useState(true);
-  const [errorInternships, setErrorInternships] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  // PWA est maintenant géré automatiquement via le service worker
 
   // Chargement des informations utilisateur
   useEffect(() => {
@@ -172,8 +173,6 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     const fetchInternshipOffers = async () => {
-      setIsLoadingInternships(true);
-      setErrorInternships(null);
       try {
         const response = await fetch('/api/propositions-stages');
         if (!response.ok) {
@@ -183,9 +182,6 @@ const StudentDashboard = () => {
         setInternshipOffers(data);
       } catch (error) {
         console.error("Erreur fetchInternshipOffers:", error);
-        setErrorInternships(error instanceof Error ? error.message : String(error));
-      } finally {
-        setIsLoadingInternships(false);
       }
     };
 
@@ -250,7 +246,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar 
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         handleLogout={handleLogout}
@@ -259,10 +255,10 @@ const StudentDashboard = () => {
       />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out md:ml-64 ml-0`}>
-        <Header 
+        <Header
           studentInfo={studentInfo}
           handleLogout={handleLogout}
-          toggleSidebar={toggleSidebar} 
+          toggleSidebar={toggleSidebar}
         />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50">
@@ -297,8 +293,9 @@ const StudentDashboard = () => {
                   internshipOffers={internshipOffers}
                 />
               )}
-              {activeTab === 'projets' && <ProjetsTab />} 
+              {activeTab === 'projets' && <ProjetsTab />}
               {activeTab === 'notifications' && <NotificationsTab />}
+              {activeTab === 'pwa-test' && <PWATestSimple />}
             </>
           )}
         </main>

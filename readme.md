@@ -329,3 +329,7 @@ Si vous pouviez partager l'URL exacte qui produit l'erreur 404 et tout message d
 Neons
 
 Ares2040_BtC  aresgnimagnon0@gmail.com
+
+PS C:\Users\ARES GNIMAGNON\Documents\REACT\gestion_stagesV1> 
+ngrok http --url=robin-saving-instantly.ngrok-free.app 5173
+PS C:\Users\ARES GNIMAGNON\Documents\REACT\gestion_stagesV1> 

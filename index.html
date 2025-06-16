@@ -1,13 +1,97 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>INSTI - Gestion des Stages</title>
+
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
+    <meta name="theme-color" content="#f97316" />
+    <meta name="background-color" content="#ffffff" />
+
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="INSTI Stages" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72x72.png" />
+    <link rel="apple-touch-icon" sizes="96x96" href="/icons/icon-96x96.png" />
+    <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128x128.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384x384.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
+
+    <!-- Android PWA Support -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Brave Browser PWA Support -->
+    <meta name="brave-web-app-capable" content="yes" />
+    <meta name="brave-web-app-status-bar-style" content="default" />
+
+    <!-- Force PWA installability -->
+    <meta name="application-name" content="INSTI Stages" />
+    <meta name="msapplication-starturl" content="/student/dashboard" />
+
+    <!-- Favicon et icônes supplémentaires -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png" />
+    <link rel="shortcut icon" href="/icons/icon-192x192.png" />
+
+    <!-- Description et mots-clés -->
+    <meta name="description" content="Plateforme de gestion des stages - Institut INSTI" />
+    <meta name="keywords" content="INSTI, stages, étudiants, gestion, plateforme" />
+
+    <!-- Open Graph pour le partage -->
+    <meta property="og:title" content="INSTI - Gestion des Stages" />
+    <meta property="og:description" content="Plateforme de gestion des stages - Institut INSTI" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
+    <meta property="og:type" content="website" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Service Worker Registration - Version simplifiée basée sur le tutoriel -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          try {
+            // Enregistrement simple comme dans le tutoriel YouTube
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker enregistré:', registration);
+
+            // Vérifier l'état du service worker
+            if (registration.active) {
+              console.log('✅ Service Worker actif et prêt');
+            }
+
+          } catch (error) {
+            console.error('❌ Échec de l\'enregistrement du Service Worker:', error);
+          }
+        });
+      } else {
+        console.warn('⚠️ Service Worker non supporté par ce navigateur');
+      }
+
+      // Vérification du support PWA
+      window.addEventListener('load', () => {
+        const checks = {
+          serviceWorker: 'serviceWorker' in navigator,
+          manifest: 'manifest' in document.createElement('link'),
+          pushManager: 'PushManager' in window,
+          notification: 'Notification' in window,
+          standalone: window.matchMedia('(display-mode: standalone)').matches
+        };
+
+        console.log('🔍 Support PWA:', checks);
+
+        // Stocker les informations pour le debug
+        window.pwaSupport = checks;
+      });
+    </script>
   </body>
 </html>

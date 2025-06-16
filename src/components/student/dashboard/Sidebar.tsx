@@ -21,6 +21,7 @@ const navItems = [
   { id: 'find', label: 'Trouver un Stage', icon: MagnifyingGlassIcon },
   { id: 'projets', label: 'Projets', icon: ClipboardDocumentListIcon },
   { id: 'notifications', label: 'Notifications', icon: BellIcon },
+  { id: 'pwa-test', label: 'Test PWA', icon: () => <span>🧪</span> },
 ];
 
 const Sidebar = ({ activeTab, setActiveTab, handleLogout, isSidebarOpen, toggleSidebar }: SidebarProps) => {

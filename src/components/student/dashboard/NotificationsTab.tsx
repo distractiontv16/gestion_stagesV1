@@ -53,9 +53,75 @@ const NotificationsTab = () => {
     fetchNotifications();
   }, []);
 
-  // TODO: Implémenter la logique pour marquer les notifications comme lues (individuellement ou toutes)
-  // const handleMarkAsRead = async (id: number) => { ... appel API PUT /api/notifications/:id/read ... puis fetchNotifications() }
-  // const handleMarkAllAsRead = async () => { ... appel API PUT /api/notifications/read-all ... puis fetchNotifications() }
+  // Marquer une notification comme lue
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Utilisateur non authentifié");
+      }
+
+      const response = await fetch(`/api/notifications/${id}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erreur lors du marquage" }));
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Recharger les notifications pour mettre à jour l'affichage
+        await fetchNotifications();
+        console.log('✅ Notification marquée comme lue, SMS annulé');
+      } else {
+        throw new Error(result.message || "Échec du marquage");
+      }
+    } catch (err) {
+      console.error("Erreur handleMarkAsRead:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Marquer toutes les notifications comme lues
+  const handleMarkAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Utilisateur non authentifié");
+      }
+
+      const response = await fetch('/api/notifications/read-all', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erreur lors du marquage global" }));
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Recharger les notifications pour mettre à jour l'affichage
+        await fetchNotifications();
+        console.log('✅ Toutes les notifications marquées comme lues');
+      } else {
+        throw new Error(result.message || "Échec du marquage global");
+      }
+    } catch (err) {
+      console.error("Erreur handleMarkAllAsRead:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -74,12 +140,12 @@ const NotificationsTab = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-gray-800">Notifications</h2>
-        {/* Bouton pour marquer tout comme lu (à implémenter) */}
+        {/* Bouton pour marquer tout comme lu */}
         {notifications.some(n => !n.lue) && (
-          <button 
-            // onClick={handleMarkAllAsRead} 
-            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
-            // disabled={isLoading} // Pour éviter double-clic
+          <button
+            onClick={handleMarkAllAsRead}
+            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
+            disabled={isLoading}
           >
             Tout marquer comme lu
           </button>
@@ -100,14 +166,13 @@ const NotificationsTab = () => {
                   notif.lue ? 'text-gray-700' : 'text-blue-700'
                 }`}>{notif.titre}</h3> {/* Utilisation du champ titre */} 
                 {!notif.lue && (
-                  <button 
-                    // onClick={() => handleMarkAsRead(notif.id)}
-                    className="text-xs text-blue-500 hover:underline"
+                  <button
+                    onClick={() => handleMarkAsRead(notif.id)}
+                    className="text-xs text-blue-500 hover:text-blue-700 hover:underline transition-colors disabled:opacity-50"
+                    disabled={isLoading}
                   >
                     Marquer comme lu
                   </button>
-                  // Ou simplement un badge "Nouveau"
-                  // <span className="px-2 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full">Nouveau</span>
                 )}
               </div>
               <p className={`mt-1 text-sm ${

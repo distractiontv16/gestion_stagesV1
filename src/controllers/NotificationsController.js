@@ -261,6 +261,7 @@ export const createNotification = async (req, res) => {
 
 /**
  * Marque une notification comme lue pour l'utilisateur connecté
+ * ET annule les SMS programmés
  */
 export const markNotificationAsRead = async (req, res) => {
   try {
@@ -274,6 +275,7 @@ export const markNotificationAsRead = async (req, res) => {
       return res.status(400).json({ success: false, message: 'ID de notification manquant' });
     }
 
+    // Marquer comme lue
     const { rowCount } = await query(
       'UPDATE notifications SET lue = TRUE WHERE id = $1 AND utilisateur_id = $2',
       [notificationId, utilisateurId]
@@ -282,6 +284,18 @@ export const markNotificationAsRead = async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ success: false, message: 'Notification non trouvée ou non autorisée' });
     }
+
+    // Annuler les jobs SMS en attente
+    await query(
+      `UPDATE scheduled_jobs
+       SET status = 'cancelled'
+       WHERE notification_id = $1
+       AND job_type IN ('sms_followup', 'sms_followup_test')
+       AND status = 'pending'`,
+      [notificationId]
+    );
+
+    console.log(`✅ Notification ${notificationId} marquée comme lue par utilisateur ${utilisateurId}, SMS annulé`);
 
     res.status(200).json({ success: true, message: 'Notification marquée comme lue' });
   } catch (error) {

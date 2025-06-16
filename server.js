@@ -172,6 +172,21 @@ const setupRoutes = async () => {
       console.error('[Serverless Function] ERROR: pushRoutesModule.default is not available or not a function. Type of default:', typeof pushRoutesModule?.default);
     }
 
+    // Routes for SMS notifications
+    console.log('[Serverless Function] Attempting to import smsRoutes from ./src/routes/sms.js...');
+    const smsRoutesModule = await import('./src/routes/sms.js');
+    console.log('[Serverless Function] smsRoutesModule imported. Type:', typeof smsRoutesModule, 'Content:', smsRoutesModule);
+
+    if (smsRoutesModule && smsRoutesModule.default && typeof smsRoutesModule.default === 'function') {
+      console.log('[Serverless Function] smsRoutesModule.default is a function (router). Attempting to use it for /api/sms');
+      app.use('/api/sms', smsRoutesModule.default);
+      console.log('[Serverless Function] /api/sms routes configured.');
+    } else {
+      console.error('[Serverless Function] ERROR: smsRoutesModule.default is not available or not a function. Type of default:', typeof smsRoutesModule?.default);
+    }
+
+
+
     // Import the auth middleware (Note: this import is not used for app.use, was it for the testProtectedRoute only?)
     console.log('[Serverless Function] Attempting to import authMiddleware from ./src/middleware/auth.js...');
     const authMiddlewareModule = await import('./src/middleware/auth.js');
@@ -191,7 +206,21 @@ const setupRoutes = async () => {
     }
     
     console.log('[Serverless Function] All routes configuration attempts finished.');
-    
+
+    // Démarrer le scheduler SMS de production (12h)
+    console.log('[Serverless Function] Attempting to start SMS Scheduler (Production - 12h)...');
+    try {
+      const SMSSchedulerModule = await import('./src/schedulers/SMSScheduler.js');
+      if (SMSSchedulerModule && SMSSchedulerModule.default) {
+        SMSSchedulerModule.default.start();
+        console.log('✅ SMS Scheduler PRODUCTION démarré avec succès (délai 12h, vérification 10min)');
+      } else {
+        console.error('❌ Impossible de charger le SMS Scheduler');
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du démarrage du SMS Scheduler:', error.message);
+    }
+
     // List all registered routes
     listRoutes();
   } catch (error) {
@@ -247,6 +276,17 @@ const setupRoutes = async () => {
 
     server.close(async () => {
       console.log('✅ Serveur HTTP fermé');
+
+      try {
+        // Arrêter le scheduler SMS
+        const SMSSchedulerModule = await import('./src/schedulers/SMSScheduler.js');
+        if (SMSSchedulerModule && SMSSchedulerModule.default) {
+          SMSSchedulerModule.default.stop();
+          console.log('✅ SMS Scheduler arrêté');
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors de l\'arrêt du SMS Scheduler:', error);
+      }
 
       try {
         // Importer et fermer le pool de base de données

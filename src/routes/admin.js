@@ -102,4 +102,38 @@ router.post('/debug', async (req, res) => {
   }
 });
 
-export default router; 
+/**
+ * GET /api/admin/notifications
+ * Récupérer toutes les notifications avec détails utilisateurs
+ */
+router.get('/notifications', protect, requireRole('admin'), async (req, res) => {
+  try {
+    const { rows: notifications } = await db.query(`
+      SELECT
+        n.*,
+        u.nom,
+        u.prenom,
+        u.email,
+        u.telephone
+      FROM notifications n
+      JOIN utilisateurs u ON n.utilisateur_id = u.id
+      ORDER BY n.created_at DESC
+      LIMIT 100
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: notifications
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur récupération notifications admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des notifications',
+      error: error.message
+    });
+  }
+});
+
+export default router;

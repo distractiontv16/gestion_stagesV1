@@ -3,6 +3,11 @@
   "env": {
     "NODE_ENV": "production"
   },
+  "functions": {
+    "server.js": {
+      "maxDuration": 30
+    }
+  },
   "builds": [
     {
       "src": "package.json",
@@ -19,7 +24,8 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server.js"
+      "dest": "/server.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
       "src": "/assets/(.*)",
@@ -44,6 +50,14 @@
       "dest": "/dist/$1"
     },
     {
+      "src": "/login",
+      "dest": "/dist/index.html"
+    },
+    {
+      "src": "/register",
+      "dest": "/dist/index.html"
+    },
+    {
       "src": "/admin-login",
       "dest": "/dist/index.html"
     },
@@ -60,4 +74,4 @@
       "dest": "/dist/index.html"
     }
   ]
-} 
+}
